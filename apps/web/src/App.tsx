@@ -9,6 +9,7 @@ import { ProjectsPage } from './pages/ProjectsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { EarningsPage } from './pages/EarningsPage';
 import { UsersPage } from './pages/UsersPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { Spinner } from './components/ui';
 
 function Routed() {
@@ -29,6 +30,7 @@ function Routed() {
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
         <Route path="/earnings" element={<EarningsPage />} />
         <Route path="/users" element={<UsersPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

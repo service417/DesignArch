@@ -124,12 +124,27 @@ export class NotificationsService {
     return users.map((u) => u.id);
   }
 
-  async markRead(userId: string, notificationId: string): Promise<void> {
+  async markRead(userId: string, notificationId: string): Promise<{ read: number }> {
     // Scoped by recipientId so a user can only ever clear their own badge.
-    await this.prisma.notification.updateMany({
+    const result = await this.prisma.notification.updateMany({
       where: { id: notificationId, recipientId: userId },
       data: { readFlag: true },
     });
+    return { read: result.count };
+  }
+
+  /**
+   * Clear the whole badge.
+   *
+   * Returns silently when there is nothing unread rather than erroring: the user
+   * asked for an empty inbox and they have one.
+   */
+  async markAllRead(userId: string): Promise<{ read: number }> {
+    const result = await this.prisma.notification.updateMany({
+      where: { recipientId: userId, readFlag: false },
+      data: { readFlag: true },
+    });
+    return { read: result.count };
   }
 
   async unreadCount(userId: string): Promise<number> {

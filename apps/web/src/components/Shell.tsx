@@ -1,6 +1,6 @@
 import { NavLink, Outlet } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { usePricingQueue } from '../lib/useQueue';
+import { useResource, usePricingQueue } from '../lib/useQueue';
 
 export function Shell() {
   const { user, signOut } = useAuth();
@@ -8,6 +8,11 @@ export function Shell() {
   // never opens the app still needs to know work is waiting on them.
   const { data: queue } = usePricingQueue();
   const waiting = queue?.length ?? 0;
+
+  // The dedicated count endpoint, not the feed: this renders on every screen and
+  // should not pull fifty rows to learn the badge is zero.
+  const { data: unread } = useResource<{ unread: number }>('/notifications/unread-count');
+  const unreadCount = unread?.unread ?? 0;
 
   return (
     <div className="shell">
@@ -32,6 +37,10 @@ export function Shell() {
         </NavLink>
         <NavLink to="/users" className="nav-link">
           People
+        </NavLink>
+        <NavLink to="/notifications" className="nav-link">
+          Notifications
+          {unreadCount > 0 && <span className="nav-count">{unreadCount}</span>}
         </NavLink>
 
         <div className="sidebar-foot">

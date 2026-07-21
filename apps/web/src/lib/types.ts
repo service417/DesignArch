@@ -150,6 +150,26 @@ export interface EarningsResponse {
   summary: { count: number; unpaidTotal: string; paidTotal: string };
 }
 
+export type NotificationEvent =
+  | 'STAGE_ASSIGNED'
+  | 'READY_FOR_INSPECTION'
+  | 'INSPECTION_APPROVED'
+  | 'INSPECTION_REJECTED'
+  | 'PRICE_PROPOSED'
+  | 'PRICE_REVISED'
+  | 'PRICE_ACCEPTED'
+  | 'PRICE_DECLINED'
+  | 'EARNING_PAID';
+
+export interface Notification {
+  id: string;
+  eventType: NotificationEvent;
+  refType: string;
+  refId: string;
+  readFlag: boolean;
+  createdAt: string;
+}
+
 export interface OutstandingRow {
   worker: PersonRef | null;
   unpaidCount: number;
