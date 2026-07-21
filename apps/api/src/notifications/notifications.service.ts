@@ -53,6 +53,37 @@ export class NotificationsService {
   }
 
   /**
+   * Tell a worker they have been given a stage (FR-7.1).
+   *
+   * Assignment is not a stage *transition* — the status does not move, and no
+   * state-machine action produces it — so it gets its own entry point rather
+   * than being bent through enqueueForTransition. This is the only producer of
+   * STAGE_ASSIGNED.
+   */
+  async notifyAssignment(
+    tx: Prisma.TransactionClient,
+    event: { stageId: string; assigneeId: string | null },
+  ): Promise<void> {
+    if (!event.assigneeId) return;
+
+    await tx.notification.createMany({
+      data: [
+        {
+          recipientId: event.assigneeId,
+          eventType: 'STAGE_ASSIGNED' satisfies NotificationEvent,
+          refType: 'stage',
+          refId: event.stageId,
+        },
+      ],
+      skipDuplicates: true,
+    });
+
+    this.logger.debug(
+      `Queued STAGE_ASSIGNED for ${event.assigneeId} on stage ${event.stageId}`,
+    );
+  }
+
+  /**
    * Who is party to this event (BR-7.1)? Only those recipients — a notification
    * is never broadcast beyond the roles involved.
    */

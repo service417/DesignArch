@@ -10,6 +10,8 @@ import { ProjectsModule } from './projects/projects.module';
 import { StagesModule } from './stages/stages.module';
 import { StorageModule } from './storage/storage.module';
 import { MediaModule } from './media/media.module';
+import { UsersModule } from './users/users.module';
+import { JobCardsModule } from './job-cards/job-cards.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 
@@ -36,8 +38,10 @@ import { RolesGuard } from './auth/roles.guard';
     StorageModule,
     AuditModule,
     AuthModule,
+    UsersModule,
     NotificationsModule,
     ProjectsModule,
+    JobCardsModule,
     StagesModule,
     MediaModule,
   ],
