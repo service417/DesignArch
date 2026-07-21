@@ -1,6 +1,6 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
+import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
@@ -145,7 +145,13 @@ export class AuthService {
       { sub: userId, email, role },
       {
         secret: this.config.getOrThrow<string>('JWT_ACCESS_SECRET'),
-        expiresIn: this.config.get<string>('JWT_ACCESS_TTL', '15m'),
+        // jsonwebtoken types expiresIn as a `ms` template literal (e.g. "15m"),
+        // which a config string cannot satisfy structurally. The value is
+        // validated by the same library at sign time.
+        expiresIn: this.config.get<string>(
+          'JWT_ACCESS_TTL',
+          '15m',
+        ) as JwtSignOptions['expiresIn'],
       },
     );
 

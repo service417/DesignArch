@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  // Build only from src, so rootDir is src and the entrypoint emits to
+  // dist/main.js as `start:prod` expects. prisma/seed.ts is deliberately
+  // excluded — it runs through ts-node and has no place in a production image,
+  // and including it would lift rootDir to the package root.
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "prisma",
+    "**/*.spec.ts",
+    "**/*.e2e-spec.ts",
+    "test"
+  ]
+}
