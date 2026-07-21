@@ -12,6 +12,7 @@ import { StorageModule } from './storage/storage.module';
 import { MediaModule } from './media/media.module';
 import { UsersModule } from './users/users.module';
 import { JobCardsModule } from './job-cards/job-cards.module';
+import { PaymentsModule } from './payments/payments.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 
@@ -44,6 +45,7 @@ import { RolesGuard } from './auth/roles.guard';
     JobCardsModule,
     StagesModule,
     MediaModule,
+    PaymentsModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },

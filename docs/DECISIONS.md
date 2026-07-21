@@ -129,7 +129,7 @@ history, inspection photos, and earnings are strictly immutable and retained.
 Hard delete only via a governed erasure process.
 
 **Encoded in:** `deleted_at` columns; the `pricing_history` append-only trigger
-and the `earning` immutability trigger in `prisma/constraints.sql`; a
+and the `earning` immutability trigger in the `business_constraints` migration; a
 `project_delete_guard` trigger that blocks deleting a project with recorded
 earnings and directs the caller to archive instead (FR-2.5).
 

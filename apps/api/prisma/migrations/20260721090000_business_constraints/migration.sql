@@ -1,11 +1,17 @@
 -- DesignArc — database-level business rules that Prisma's schema language
--- cannot express. Apply AFTER the baseline Prisma migration:
+-- cannot express.
 --
---   psql "$DATABASE_URL" -f prisma/constraints.sql
+-- This lives in a migration, not a loose script run by hand, because it *is* the
+-- last line of defence: a deployment that forgot to run it would come up with
+-- every CHECK and trigger silently absent and nothing to report the gap. Now
+-- `prisma migrate deploy` applies it like any other change.
 --
--- Each constraint here exists so that a rule the business calls critical cannot
--- be broken even by a bug in application code. Defence in depth: the service
--- layer checks these too, but the database is the last line.
+-- Every statement is idempotent (DROP ... IF EXISTS / CREATE OR REPLACE), so
+-- this is safe to re-run against a database where it was applied manually.
+--
+-- Each constraint exists so that a rule the business calls critical cannot be
+-- broken even by a bug in application code. The service layer checks these too;
+-- the database is what holds when the service is wrong.
 
 -- ---------------------------------------------------------------------------
 -- BR-3 / FR-6.1 — no price exists on a stage before Supervisor approval.
@@ -152,6 +158,25 @@ CREATE TRIGGER earning_immutable
   BEFORE UPDATE ON "earning"
   FOR EACH ROW EXECUTE FUNCTION earning_amount_is_immutable();
 
+-- A payment is recorded once. Un-paying would erase the record that a worker was
+-- settled, so reversal is a new corrective entry, never an edit (FR-8.3).
+CREATE OR REPLACE FUNCTION earning_payment_is_final()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF OLD."status" = 'PAID' AND NEW."status" <> 'PAID' THEN
+    RAISE EXCEPTION
+      'earning % is already recorded as paid and cannot be returned to unpaid (FR-8.3)', OLD."id"
+      USING ERRCODE = 'restrict_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS earning_payment_final ON "earning";
+CREATE TRIGGER earning_payment_final
+  BEFORE UPDATE ON "earning"
+  FOR EACH ROW EXECUTE FUNCTION earning_payment_is_final();
+
 -- ---------------------------------------------------------------------------
 -- FR-2.5 — a project with recorded payments can be archived, never deleted.
 -- ON DELETE RESTRICT on the FK chain already blocks this; this makes the
@@ -182,6 +207,23 @@ DROP TRIGGER IF EXISTS project_delete_guard ON "project";
 CREATE TRIGGER project_delete_guard
   BEFORE DELETE ON "project"
   FOR EACH ROW EXECUTE FUNCTION project_with_payments_cannot_be_deleted();
+
+-- ---------------------------------------------------------------------------
+-- `updated_at` is maintained by Prisma's @updatedAt, which is a client-side
+-- concern: the column is NOT NULL with no database default, so any writer that
+-- is not Prisma — a data migration, a correction script, a psql session — fails
+-- on a missing timestamp rather than on the rule it was actually violating.
+--
+-- This was not hypothetical: a test asserting BR-8 (one earning per stage)
+-- appeared to pass while failing on `updated_at`, not on the unique constraint
+-- it was meant to prove. A default makes the database self-sufficient and lets
+-- the real constraint surface the real error.
+-- ---------------------------------------------------------------------------
+ALTER TABLE "user"     ALTER COLUMN "updated_at" SET DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "project"  ALTER COLUMN "updated_at" SET DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "job_card" ALTER COLUMN "updated_at" SET DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "stage"    ALTER COLUMN "updated_at" SET DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "earning"  ALTER COLUMN "updated_at" SET DEFAULT CURRENT_TIMESTAMP;
 
 -- ---------------------------------------------------------------------------
 -- Partial index: the Admin action queues ("approved, awaiting price" and

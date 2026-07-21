@@ -44,7 +44,8 @@ src/
 └── prisma/          Client lifecycle
 prisma/
 ├── schema.prisma    Tables, enums, relations, indexes
-└── constraints.sql  CHECK constraints + triggers Prisma cannot express
+└── migrations/      Includes business_constraints: the CHECKs and triggers
+                     Prisma's schema language cannot express
 ```
 
 ## Running it
@@ -59,8 +60,7 @@ cp .env.example .env                 # then fill in secrets
 
 # Database
 pnpm prisma:generate
-pnpm migrate:dev                     # create schema
-psql "$DATABASE_URL" -f prisma/constraints.sql   # apply triggers + CHECKs
+pnpm migrate:dev                     # schema + CHECKs + triggers, in one step
 pnpm seed                            # demo users, project, job card
 
 pnpm start:dev                       # http://localhost:3000/api/v1
