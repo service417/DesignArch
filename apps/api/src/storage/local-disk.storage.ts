@@ -20,6 +20,9 @@ const CONTENT_TYPE_BY_EXTENSION: Record<string, string> = {
   '.jpg': 'image/jpeg',
   '.png': 'image/png',
   '.heic': 'image/heic',
+  // Job card attachments admit a wider set than inspection evidence.
+  '.webp': 'image/webp',
+  '.pdf': 'application/pdf',
 };
 
 /**

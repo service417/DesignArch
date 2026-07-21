@@ -2,7 +2,12 @@ import { Module } from '@nestjs/common';
 import { MulterModule } from '@nestjs/platform-express';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MediaService } from './media.service';
-import { MediaFilesController, StagePhotosController } from './media.controller';
+import { AttachmentsService } from './attachments.service';
+import {
+  JobCardAttachmentsController,
+  MediaFilesController,
+  StagePhotosController,
+} from './media.controller';
 
 /**
  * Inspection evidence capture and retrieval.
@@ -20,13 +25,20 @@ import { MediaFilesController, StagePhotosController } from './media.controller'
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         limits: {
-          fileSize: Number(config.get('MAX_PHOTO_BYTES') ?? 5 * 1024 * 1024),
+          // Multer's limit is module-wide, so it has to admit the larger of the
+          // two kinds. It is only a coarse gate that stops an oversized body
+          // being read at all; MediaService and AttachmentsService each enforce
+          // their own, tighter limit, so a 20 MB photograph is still refused.
+          fileSize: Math.max(
+            Number(config.get('MAX_PHOTO_BYTES') ?? 5 * 1024 * 1024),
+            Number(config.get('MAX_ATTACHMENT_BYTES') ?? 20 * 1024 * 1024),
+          ),
           files: 1,
         },
       }),
     }),
   ],
-  controllers: [StagePhotosController, MediaFilesController],
-  providers: [MediaService],
+  controllers: [StagePhotosController, JobCardAttachmentsController, MediaFilesController],
+  providers: [MediaService, AttachmentsService],
 })
 export class MediaModule {}

@@ -1,5 +1,17 @@
-import { Body, Controller, Get, HttpCode, Ip, Param, Post, Query, Req } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Ip,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseInterceptors,
+} from '@nestjs/common';
 import { PaymentsService } from './payments.service';
+import { IdempotencyInterceptor } from '../common/idempotency.interceptor';
 import { Roles } from '../auth/roles.decorator';
 import { AuthenticatedRequest } from '../auth/authenticated-request';
 import { EarningQueryDto, MarkPaidDto } from './dto/payment.dto';
@@ -43,6 +55,7 @@ export class PaymentsController {
   @Post(':id/pay')
   @Roles('ADMIN')
   @HttpCode(200)
+  @UseInterceptors(IdempotencyInterceptor)
   markPaid(
     @Param('id') id: string,
     @Body() dto: MarkPaidDto,

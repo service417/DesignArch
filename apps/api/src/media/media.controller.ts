@@ -1,5 +1,6 @@
 import {
   Controller,
+  Delete,
   Get,
   Inject,
   Param,
@@ -16,6 +17,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ConfigService } from '@nestjs/config';
 import { Response } from 'express';
 import { MediaService, UploadedPhoto } from './media.service';
+import { AttachmentsService } from './attachments.service';
 import { Public, Roles } from '../auth/roles.decorator';
 import { AuthenticatedRequest } from '../auth/authenticated-request';
 import { STORAGE_PROVIDER, StorageProvider } from '../storage/storage.types';
@@ -53,6 +55,46 @@ export class StagePhotosController {
   @Roles('ADMIN', 'CARPENTER', 'PAINTER', 'SUPERVISOR')
   list(@Param('id') stageId: string) {
     return this.media.listForStage(stageId);
+  }
+}
+
+/**
+ * Design files on a job card (FR-4) — the brief the work is done from.
+ *
+ * Admin writes, everyone reads: a carpenter cannot build from a drawing they
+ * cannot open. Unlike inspection evidence these can be removed, because a
+ * superseded drawing is a mistake to correct rather than a record to preserve.
+ */
+@Controller('job-cards')
+export class JobCardAttachmentsController {
+  constructor(private readonly attachments: AttachmentsService) {}
+
+  @Post(':id/attachments')
+  @Roles('ADMIN')
+  @UseInterceptors(FileInterceptor('file'))
+  upload(
+    @Param('id') jobCardId: string,
+    @UploadedFile() file: UploadedPhoto | undefined,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.attachments.attach(jobCardId, req.user!.id, file, ip);
+  }
+
+  @Get(':id/attachments')
+  @Roles('ADMIN', 'CARPENTER', 'PAINTER', 'SUPERVISOR')
+  list(@Param('id') jobCardId: string) {
+    return this.attachments.listForJobCard(jobCardId);
+  }
+
+  @Delete('attachments/:attachmentId')
+  @Roles('ADMIN')
+  remove(
+    @Param('attachmentId') attachmentId: string,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.attachments.remove(attachmentId, req.user!.id, ip);
   }
 }
 

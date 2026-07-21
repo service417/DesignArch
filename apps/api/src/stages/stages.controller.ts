@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Headers, Ip, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Ip, Param, Post, Req, UseInterceptors } from '@nestjs/common';
 import { StagesService } from './stages.service';
+import { IdempotencyInterceptor } from '../common/idempotency.interceptor';
 import { Roles } from '../auth/roles.decorator';
 import { AuthenticatedRequest } from '../auth/authenticated-request';
 import {
@@ -103,12 +104,12 @@ export class StagesController {
    */
   @Post(':id/price')
   @Roles('ADMIN')
+  @UseInterceptors(IdempotencyInterceptor)
   async setPrice(
     @Param('id') id: string,
     @Body() dto: SetPriceDto,
     @Req() req: AuthenticatedRequest,
     @Ip() ip: string,
-    @Headers('idempotency-key') _idempotencyKey?: string,
   ) {
     const action = dto.revision ? 'REVISE_PRICE' : 'PROPOSE_PRICE';
     return this.stages.transition(id, actorOf(req), action, dto, ip);

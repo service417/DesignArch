@@ -312,6 +312,38 @@ model Notification {
   @@map("notification")
 }
 
+/// Replay protection for retried writes (decision C3).
+///
+/// Workshop connectivity is unreliable, so a client that does not hear a reply
+/// will retry. Without this the retry would be a second, distinct action: a
+/// second price proposal, or worse a second payment record. The stored response
+/// is replayed instead of the action being repeated.
+model IdempotencyRecord {
+  /// The client's key, scoped to the user so one client cannot replay or
+  /// overwrite another's result by guessing a key.
+  key         String   @db.VarChar(120)
+  userId      String   @map("user_id") @db.Uuid
+  /// Method + path, so the same key on a different endpoint is a client bug
+  /// rather than a silent wrong replay.
+  endpoint    String   @db.VarChar(200)
+  /// SHA-256 of the request body: the same key with a different body is a
+  /// conflict, not a replay.
+  requestHash String   @map("request_hash") @db.VarChar(64)
+  statusCode  Int      @map("status_code")
+  /// The serialised response body, stored as text rather than JSONB.
+  ///
+  /// JSONB normalises object key order, so a replay would return the same
+  /// content in a different byte sequence — and a replay that is not identical
+  /// is not really a replay. Nothing ever queries inside this column, so JSONB's
+  /// only real feature is unused. Text round-trips exactly.
+  responseBody String  @map("response_body") @db.Text
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@id([userId, key])
+  @@index([createdAt])
+  @@map("idempotency_record")
+}
+
 /// Security and sensitive-action audit trail: auth failures, permission denials,
 /// price and payment actions, account changes (FR-1.4, Blueprint §10.4).
 model AuditLog {

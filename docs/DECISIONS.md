@@ -116,9 +116,25 @@ actions.
 **Why:** ASM-03 ("reliable internet at the workshop") is optimistic for a
 workshop floor. A dropped connection should delay an inspection, never lose one.
 
-**Encoded in:** `Idempotency-Key` header accepted on stage actions; optimistic
-locking via `stage.version`. **Idempotency replay storage is not yet implemented**
-— the header is accepted but not yet deduplicated.
+**Encoded in:** `Idempotency-Key` header, optimistic locking via `stage.version`,
+and `IdempotencyInterceptor` backed by the `idempotency_record` table.
+
+Applied per-route rather than globally: it is only correct for non-idempotent
+writes, so it guards the two places a duplicate genuinely costs money —
+`POST /stages/:id/price` and `POST /earnings/:id/pay`. A GET needs no protection
+and the state machine already refuses an illegal repeat.
+
+Records are keyed by `(userId, key)` so one client cannot replay another's
+result, and store a hash of the request body: the same key with a different body
+is a `409 IDEMPOTENCY_KEY_REUSED`, not a replay of something the caller did not
+ask for. Only successful responses are stored, so a transient failure stays
+retryable.
+
+The response is stored as **text, not JSONB** — JSONB normalises object key
+order, and a replay that is not byte-identical is not really a replay.
+
+**Still outstanding:** nothing prunes `idempotency_record`. It needs a retention
+job; the `createdAt` index exists for it.
 
 ---
 
@@ -145,8 +161,14 @@ is a projection of it.
 ledger ever disagree, that disagreement is *detectable* rather than silent.
 
 **Encoded in:** `src/domain/pricing-ledger.ts` — `projectLedger()` derives the
-price, and `reconcile()` reports disagreement. A periodic reconciliation job
-should call it; **that job is not yet built**.
+price, and `reconcile()` reports disagreement. `GET /reports/reconciliation`
+replays every settled stage's ledger and also checks that each earning equals
+its stage's accepted price.
+
+Exposed as an on-demand endpoint before a scheduled job, because a check nobody
+can run is a check nobody trusts, and it is read-only so running it cannot make
+anything worse. **The periodic job is still not built** — it should call the same
+service method and alert on a non-empty `discrepancies` array.
 
 ---
 
