@@ -1,0 +1,332 @@
+// DesignArc — database schema (PostgreSQL 18)
+//
+// Design intent (from the Solution Architecture Blueprint, Phase 4):
+//   * Business rules are encoded as constraints wherever possible, so an illegal
+//     state is impossible by construction rather than by convention.
+//   * Money and evidence are immutable: `pricing_history` is append-only and
+//     `earning` is never mutated after payment.
+//   * UUID v7 (time-ordered) surrogate keys — globally unique, index-friendly,
+//     and not guessable the way sequential integers are. PostgreSQL 18 provides
+//     uuidv7() natively.
+//   * Users and Projects soft-delete; money/evidence rows use ON DELETE RESTRICT
+//     so history can never be orphaned.
+//
+// CHECK constraints, the append-only grant revocation, and triggers that Prisma
+// cannot express live in prisma/migrations/*/constraints.sql.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------- enums
+
+enum Role {
+  ADMIN
+  CARPENTER
+  PAINTER
+  SUPERVISOR
+}
+
+enum UserStatus {
+  ACTIVE
+  DEACTIVATED
+}
+
+enum ProjectStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum StageType {
+  CARPENTRY
+  PAINTING
+}
+
+/// The nine-state stage lifecycle (SRS FR-3.5). Transitions are guarded by the
+/// server-side state machine in src/domain/stage-state-machine.ts — any move not
+/// declared there is rejected.
+enum StageStatus {
+  ASSIGNED
+  IN_PROGRESS
+  READY_FOR_INSPECTION
+  APPROVED
+  REJECTED
+  PRICE_PROPOSED
+  PRICE_DECLINED
+  PRICE_ACCEPTED
+  COMPLETED
+}
+
+enum PricingAction {
+  PROPOSED
+  REVISED
+  ACCEPTED
+  DECLINED
+}
+
+enum EarningStatus {
+  UNPAID
+  PAID
+}
+
+enum AttachmentKind {
+  DESIGN
+}
+
+enum NotificationEvent {
+  STAGE_ASSIGNED
+  READY_FOR_INSPECTION
+  INSPECTION_APPROVED
+  INSPECTION_REJECTED
+  PRICE_PROPOSED
+  PRICE_REVISED
+  PRICE_ACCEPTED
+  PRICE_DECLINED
+  EARNING_PAID
+}
+
+// ---------------------------------------------------------------- identity
+
+model User {
+  id           String     @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name         String     @db.VarChar(120)
+  email        String     @unique @db.VarChar(255)
+  phone        String?    @unique @db.VarChar(20)
+  /// Exactly one active primary role per account (BR-1.1).
+  role         Role
+  status       UserStatus @default(ACTIVE)
+  passwordHash String     @map("password_hash") @db.VarChar(60)
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  /// Soft delete — users are deactivated, never hard-deleted, where related records exist.
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  assignedStages    Stage[]           @relation("StageAssignee")
+  projectsCreated   Project[]         @relation("ProjectCreatedBy")
+  pricingActions    PricingHistory[]
+  inspectionPhotos  InspectionPhoto[]
+  attachments       Attachment[]
+  earnings          Earning[]         @relation("EarningWorker")
+  earningsMarkedPaid Earning[]        @relation("EarningPaidBy")
+  notifications     Notification[]
+  auditEntries      AuditLog[]
+  refreshTokens     RefreshToken[]
+
+  @@index([role, status])
+  @@map("user")
+}
+
+/// Rotating refresh tokens with reuse detection: a whole token family is revoked
+/// if a already-used token is presented again (Blueprint §10.1).
+model RefreshToken {
+  id         String    @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  /// SHA-256 of the token — the raw token is never stored.
+  tokenHash  String    @unique @map("token_hash") @db.VarChar(64)
+  familyId   String    @map("family_id") @db.Uuid
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([familyId])
+  @@map("refresh_token")
+}
+
+// ---------------------------------------------------------------- work structure
+
+model Project {
+  id          String        @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  name        String        @db.VarChar(120)
+  client      String        @db.VarChar(120)
+  description String?       @db.Text
+  deadline    DateTime?     @db.Timestamptz(6)
+  status      ProjectStatus @default(ACTIVE)
+  createdById String        @map("created_by") @db.Uuid
+
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  createdBy User      @relation("ProjectCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  jobCards  JobCard[]
+
+  @@index([status])
+  @@map("project")
+}
+
+model JobCard {
+  id          String  @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  projectId   String  @map("project_id") @db.Uuid
+  title       String  @db.VarChar(150)
+  description String? @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Restrict)
+  stages      Stage[]
+  attachments Attachment[]
+
+  @@index([projectId])
+  @@map("job_card")
+}
+
+/// Design files forming the brief. Separate from inspection photos so evidence
+/// and instruction are never conflated.
+model Attachment {
+  id           String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  jobCardId    String         @map("job_card_id") @db.Uuid
+  fileRef      String         @map("file_ref") @db.VarChar(500)
+  kind         AttachmentKind @default(DESIGN)
+  uploadedById String         @map("uploaded_by") @db.Uuid
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  jobCard    JobCard @relation(fields: [jobCardId], references: [id], onDelete: Restrict)
+  uploadedBy User    @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([jobCardId])
+  @@map("attachment")
+}
+
+/// The heart of the workflow. One stage = one worker's unit of work on a job card.
+model Stage {
+  id          String      @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  jobCardId   String      @map("job_card_id") @db.Uuid
+  type        StageType
+  /// Ordering within the job card; carpentry=1, painting=2. Drives the sequence gate.
+  sequenceNo  Int         @map("sequence_no")
+  assigneeId  String?     @map("assignee_id") @db.Uuid
+  status      StageStatus @default(ASSIGNED)
+  /// Set only once the worker accepts a price (BR-6.4). Integer minor units (LKR cents),
+  /// never a float — money is never stored as a binary fraction.
+  acceptedPrice BigInt?   @map("accepted_price")
+  /// Optimistic lock: guards against two Admins pricing at once, or a worker
+  /// accepting while the Admin revises (Blueprint §2.2).
+  version     Int         @default(0)
+
+  rejectionReason String?   @map("rejection_reason") @db.VarChar(500)
+  approvedAt      DateTime? @map("approved_at") @db.Timestamptz(6)
+  completedAt     DateTime? @map("completed_at") @db.Timestamptz(6)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  jobCard        JobCard           @relation(fields: [jobCardId], references: [id], onDelete: Restrict)
+  assignee       User?             @relation("StageAssignee", fields: [assigneeId], references: [id], onDelete: Restrict)
+  pricingHistory PricingHistory[]
+  photos         InspectionPhoto[]
+  earning        Earning?
+
+  @@unique([jobCardId, type])
+  @@index([status])
+  @@index([assigneeId, status])
+  @@index([jobCardId, sequenceNo])
+  @@map("stage")
+}
+
+// ---------------------------------------------------------------- money & evidence
+
+/// Append-only pricing ledger (BR-9 / FR-6.6). UPDATE and DELETE are revoked at
+/// the database role level; the "accepted price" is a projection of this ledger,
+/// which is what makes the audit trail tamper-evident.
+model PricingHistory {
+  id        String        @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  stageId   String        @map("stage_id") @db.Uuid
+  actorId   String        @map("actor_id") @db.Uuid
+  action    PricingAction
+  /// Integer minor units. Null for DECLINED (a decline carries no amount).
+  value     BigInt?
+  reason    String?       @db.VarChar(500)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  stage Stage @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  actor User  @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([stageId, createdAt])
+  @@map("pricing_history")
+}
+
+/// Inspection evidence. At least one is required before a stage may be Approved
+/// (FR-5.6) — enforced transactionally in the inspection service.
+model InspectionPhoto {
+  id           String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  stageId      String   @map("stage_id") @db.Uuid
+  supervisorId String   @map("supervisor_id") @db.Uuid
+  fileRef      String   @map("file_ref") @db.VarChar(500)
+  thumbRef     String?  @map("thumb_ref") @db.VarChar(500)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  stage      Stage @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  supervisor User  @relation(fields: [supervisorId], references: [id], onDelete: Restrict)
+
+  @@index([stageId])
+  @@map("inspection_photo")
+}
+
+/// One earning per completed stage — the unique stageId is what structurally
+/// guarantees BR-8 (a worker cannot be paid twice for the same stage).
+model Earning {
+  id       String        @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  stageId  String        @unique @map("stage_id") @db.Uuid
+  workerId String        @map("worker_id") @db.Uuid
+  /// Immutable once written; equals the accepted price.
+  amount   BigInt
+  status   EarningStatus @default(UNPAID)
+  paidAt   DateTime?     @map("paid_date") @db.Timestamptz(6)
+  paidById String?       @map("paid_by") @db.Uuid
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  stage  Stage @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  worker User  @relation("EarningWorker", fields: [workerId], references: [id], onDelete: Restrict)
+  paidBy User? @relation("EarningPaidBy", fields: [paidById], references: [id], onDelete: Restrict)
+
+  @@index([workerId, status, createdAt])
+  @@map("earning")
+}
+
+// ---------------------------------------------------------------- comms & audit
+
+model Notification {
+  id          String            @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  recipientId String            @map("recipient_id") @db.Uuid
+  eventType   NotificationEvent @map("event_type")
+  refType     String            @map("ref_type") @db.VarChar(40)
+  refId       String            @map("ref_id") @db.Uuid
+  payload     Json?             @db.JsonB
+  readFlag    Boolean           @default(false) @map("read_flag")
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  recipient User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId, readFlag])
+  @@map("notification")
+}
+
+/// Security and sensitive-action audit trail: auth failures, permission denials,
+/// price and payment actions, account changes (FR-1.4, Blueprint §10.4).
+model AuditLog {
+  id       String   @id @default(dbgenerated("uuidv7()")) @db.Uuid
+  actorId  String?  @map("actor_id") @db.Uuid
+  action   String   @db.VarChar(80)
+  entity   String   @db.VarChar(60)
+  entityId String?  @map("entity_id") @db.Uuid
+  meta     Json?    @db.JsonB
+  ip       String?  @db.VarChar(45)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  actor User? @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([actorId, createdAt])
+  @@index([entity, entityId])
+  @@map("audit_log")
+}

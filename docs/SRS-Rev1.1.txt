@@ -1,0 +1,1150 @@
+QueMore Software Requirements Specification                                               DesignArc · Rev 1.1
+
+                                              QueMore
+
+                                             Software Engineering & Solutions
+
+SOFTWARE REQUIREMENTS SPECIFICATION
+
+                           DesignArc
+
+       Furniture Manufacturing Workflow Platform -- Web & Mobile
+
+             Conforms to ISO/IEC/IEEE 29148:2018 -- Requirements Engineering
+                     Revision 1.1 · 18 July 2026 · Status: Draft for Review
+
+Document Control         Software Requirements Specification -- DesignArc
+Document Title           DesignArc Furniture Manufacturing Workflow Platform
+System Name              DesignArc -- Interior Designers & Consultants
+Client / Business Owner  QueMore -- Business Analysis Team
+Prepared By              ISO/IEC/IEEE 29148:2018 (supersedes IEEE 830-1998)
+Governing Standard       1.1
+Revision                 Draft for stakeholder review
+Status                   18 July 2026
+Date
+
+                         Confidential · Prepared by QueMore for DesignArc · Page 1 of 23
+QueMore Software Requirements Specification                                    DesignArc · Rev 1.1
+
+Revision History                             Summary of change
+                                             Initial draft from discovery workshop
+Version  Date         Author                 First baseline candidate for
+0.1      10 Jul 2026  QueMore BA Team        stakeholder review
+                                             Revised pricing flow: price is set after
+1.0      18 Jul 2026  QueMore BA Team        Supervisor approval; worker then
+                                             accepts or declines
+1.1      18 Jul 2026  QueMore BA Team
+
+QueMore requirements philosophy
+
+A requirement that cannot be tested does not exist. A requirement that can be interpreted two ways will be
+built the wrong way. Every requirement in this document is written to be necessary, unambiguous, feasible,
+verifiable, traceable, and complete.
+
+Table of Contents
+
+   Revision History ................................................................................................................................................ 2
+   Table of Contents..............................................................................................................................................2
+1 Introduction ...................................................................................................................................................... 4
+   1.1 Purpose ...................................................................................................................................................... 4
+   1.2 Scope..........................................................................................................................................................4
+
+      In Scope -- MVP............................................................................................................................................ 4
+      In Scope -- Version 1.0 ................................................................................................................................. 4
+      Out of Scope ................................................................................................................................................. 4
+      Business Benefits .......................................................................................................................................... 4
+   1.3 Product Perspective ................................................................................................................................... 5
+   1.4 Product Functions ...................................................................................................................................... 5
+   1.5 User Characteristics ................................................................................................................................... 6
+   1.6 Limitations (Constraints) ............................................................................................................................ 6
+      1.6.1 Regulatory ........................................................................................................................................... 6
+      1.6.2 Design and Implementation................................................................................................................6
+      1.6.3 Criticality ............................................................................................................................................. 6
+   1.7 Assumptions, Dependencies & Deferred Requirements ........................................................................... 6
+      1.7.1 Assumptions........................................................................................................................................7
+      1.7.2 Dependencies......................................................................................................................................7
+      1.7.3 Deferred Requirements ...................................................................................................................... 7
+   1.8 Definitions .................................................................................................................................................. 7
+   1.9 Acronyms & Abbreviations ........................................................................................................................ 8
+2 References ........................................................................................................................................................ 9
+
+                                                Confidential · Prepared by QueMore for DesignArc · Page 2 of 23
+QueMore Software Requirements Specification                      DesignArc · Rev 1.1
+
+3 Specific Requirements..................................................................................................................................... 10
+   3.1 External Interfaces ................................................................................................................................... 10
+   3.2 Functions (Functional Requirements) ...................................................................................................... 10
+      3.2.1 User Authentication & Role Management........................................................................................10
+      3.2.2 Project Management ........................................................................................................................ 11
+      3.2.3 Job Card & Stage Management......................................................................................................... 12
+      3.2.4 Stage Assignment..............................................................................................................................13
+      3.2.5 Work Execution & Supervisor Inspection ......................................................................................... 13
+      3.2.6 Post-Inspection Pricing......................................................................................................................14
+      3.2.7 Notifications......................................................................................................................................15
+      3.2.8 Payments & Financial Records .......................................................................................................... 16
+      3.2.9 Dashboard & Reporting .................................................................................................................... 16
+   3.3 Usability Requirements............................................................................................................................17
+   3.4 Performance Requirements.....................................................................................................................18
+   3.5 Logical Database Requirements...............................................................................................................18
+   3.6 Design Constraints ................................................................................................................................... 19
+   3.7 Standards Compliance ............................................................................................................................. 19
+   3.8 Software System Attributes ..................................................................................................................... 19
+      3.8.1 Reliability...........................................................................................................................................19
+      3.8.2 Availability.........................................................................................................................................19
+      3.8.3 Security ............................................................................................................................................. 19
+      3.8.4 Maintainability .................................................................................................................................. 19
+      3.8.5 Portability & Scalability ..................................................................................................................... 20
+
+4 Verification......................................................................................................................................................21
+      Verification Matrix ...................................................................................................................................... 21
+
+5 Supporting Information .................................................................................................................................. 22
+   5.A Appendix A -- Requirement Traceability Matrix (RTM) .......................................................................... 22
+   5.B Appendix B -- Phased Feature Roadmap ................................................................................................ 22
+   5.C Appendix C -- TBD Resolution Log .......................................................................................................... 22
+
+6 References to Verification Artefacts ............................................................................................................... 23
+   Final Approval ................................................................................................................................................. 23
+
+Confidential · Prepared by QueMore for DesignArc · Page 3 of 23
+QueMore Software Requirements Specification                      DesignArc · Rev 1.1
+
+1 Introduction
+
+This Software Requirements Specification (SRS) establishes the shared understanding between DesignArc and
+QueMore of the system to be built. Sections 1 and 2 set the context; Section 3 defines every requirement the
+development team will build and the QA team will verify.
+
+1.1 Purpose
+
+This SRS defines the functional and non-functional requirements for the DesignArc Furniture Manufacturing
+Workflow Platform. It establishes a verifiable agreement between DesignArc (Business Owner) and QueMore
+(Development Team) on what the system shall do. This SRS forms the baseline for solution design,
+development, verification, acceptance testing, and future change control. It is intended for the DesignArc
+business owner and supervisors, and for QueMore's design, development, and QA teams.
+
+1.2 Scope
+
+DesignArc is a furniture-manufacturing and interior-design business. Work is organised into projects, each
+broken into job cards that pass through a carpentry stage and a painting stage. The platform digitises the
+assignment, execution, inspection, post-inspection pricing, payment, and reporting of that work across a web
+application (for the Admin) and a mobile application (for carpenters, painters, and supervisors).
+
+In Scope -- MVP
+  · User accounts and role-based access for Admin, Carpenter, Painter, and Supervisor.
+  · Project creation and management by the Admin.
+  · Job cards with Carpentry and Painting stages and design attachments (no price is set at creation).
+  · Work execution: worker marks a stage 'Ready for Inspection'; the Supervisor inspects, uploads photos,
+      and approves or rejects (rework).
+  · Post-inspection pricing: after the Supervisor approves a stage, the Admin sets the price; the worker
+      then accepts or declines it, with a full pricing history.
+  · In-app notifications on every workflow handoff.
+  · Per-stage earning records with Paid / Unpaid status.
+  · A basic Admin dashboard.
+
+In Scope -- Version 1.0
+  · Full Admin dashboard with KPIs and an approval action queue.
+  · Monthly earnings reports per worker, exportable as PDF.
+  · Push notifications to mobile devices.
+  · Project completion roll-up and worker workload views.
+
+Out of Scope
+  · Online payment disbursement or payroll/bank integration (the system records payment status only).
+  · Materials, stock, or inventory management.
+  · A client-facing portal.
+  · Integration with external accounting systems.
+  · Multi-language user interface and full offline-first operation.
+
+Business Benefits
+
+Confidential · Prepared by QueMore for DesignArc · Page 4 of 23
+QueMore Software Requirements Specification                                                 DesignArc · Rev 1.1
+
+Benefit                                      Measurable outcome
+Eliminate paper/phone job tracking           All job assignments and statuses captured digitally, no verbal handoffs
+                                             Price is set after work is approved; every proposed and revised price is
+Transparent pricing                          recorded with the worker's accept/decline
+                                             Photographic evidence attached to every approved stage
+Proof of work                                Per-stage earnings computed automatically from agreed amounts
+Accurate worker payments                     Live project completion and workforce status on the Admin dashboard
+Real-time visibility
+
+1.3 Product Perspective
+
+The platform is a new, self-contained system comprising a responsive web application for the Admin and a
+cross-platform mobile application for field roles, served by a shared backend API and database. It does not
+replace an existing system. The sub-sections below follow the IEEE 29148 clause structure; every sub-section
+is completed, and 'none' means the item was considered and ruled out.
+
+Sub-section                Description
+1.3.1 System Interfaces
+                           None required for MVP. Future accounting/payroll integration is deferred (see Out of
+1.3.2 User Interfaces      Scope).
+
+1.3.3 Hardware Interfaces  Responsive web (Admin) and native-style mobile (field roles). UI follows the
+1.3.4 Software Interfaces  DesignArc brand identity -- forest green (#4E7A54) primary, brick red (#B23A2E)
+1.3.5 Communications       accent, cream (#F7F4EE) background.
+1.3.6 Memory Constraints
+1.3.7 Operations           Mobile device camera for capturing inspection photographs. Otherwise standard
+1.3.8 Site Adaptation      internet-connected devices.
+1.3.9 Services
+                           Backend REST API (JSON payloads), a push-notification service, and cloud file/object
+                           storage for design files and photos.
+
+                           All traffic over HTTPS/TLS 1.2+. Authentication via signed tokens (JWT). Timestamps
+                           in ISO 8601. Payloads in JSON.
+
+                           Inspection photo size capped (see TBD-05). Server storage sized for design files and
+                           photo history; thresholds drive NFR-P targets.
+
+                           Automated daily database backups, health monitoring and alerting, and a defined
+                           maintenance window; owned by QueMore Operations.
+
+                           Single-tenant deployment for DesignArc. Currency/locale configuration (see TBD-02).
+
+                           Cloud hosting, object storage, and push-notification service required across dev,
+                           staging, UAT, and production.
+
+1.4 Product Functions
+
+The following is the high-level summary of what the system does. Detailed 'shall' statements live in Section
+3.2.
+
+Function Group                      Major Capabilities
+Access & Roles                      Authentication, role-based access control, user account management
+Project Management                  Create/edit/archive projects, project completion roll-up
+
+                           Confidential · Prepared by QueMore for DesignArc · Page 5 of 23
+QueMore Software Requirements Specification                                                DesignArc · Rev 1.1
+
+Function Group            Major Capabilities
+Job Cards & Stages        Create job cards, define carpentry/painting stages, attach designs, track status
+Stage Assignment          Assign each stage to a carpenter or painter with the design brief (no price)
+Work & Inspection         Mark ready, Supervisor photo upload, approve or reject for rework
+                          After approval the Admin sets the price; worker accepts or declines; pricing
+Post-Inspection Pricing   history
+                          In-app and push alerts on every workflow handoff
+Notifications             Per-stage earning records, Paid/Unpaid status, mark as paid
+Payments                  Admin KPI dashboard, approval queue, worker monthly earnings reports
+Dashboard & Reports
+
+1.5 User Characteristics
+
+Role        Description                               Proficiency   Key Characteristics
+
+Admin       Creates projects and job cards,                         Desktop/web, office setting, daily
+            approves amounts, manages payments, Intermediate        use
+            monitors progress
+                                                                    Mobile, workshop floor,
+Carpenter   Executes carpentry stages; marks work     Beginner­     intermittent connectivity, daily
+            ready; accepts or declines the price set  Intermediate
+            after approval                                          Mobile, workshop floor, daily
+
+Painter     Executes painting stages; same            Beginner­     Mobile with camera, on the floor,
+            workflow as Carpenter                     Intermediate  multiple times per day
+
+Supervisor  Inspects finished stages, uploads         Intermediate
+            photos, approves or rejects work
+
+1.6 Limitations (Constraints)
+
+1.6.1 Regulatory
+The system shall handle personal data (user identities, payment records) in line with applicable data-
+protection obligations, including the right to have personal data corrected or erased where no legal retention
+requirement applies.
+
+1.6.2 Design and Implementation
+  · Passwords shall be stored using a strong adaptive hash (bcrypt, minimum cost factor 12).
+  · All network communication shall use HTTPS/TLS 1.2 or higher.
+  · The mobile application shall run on current supported versions of Android and iOS.
+  · The web application shall support current versions of Chrome, Edge, Firefox, and Safari.
+
+1.6.3 Criticality
+Business-critical functions are inspection sign-off, price setting and acceptance, and payment records,
+because they determine what workers are paid. Loss or corruption of pricing history, inspection photos, or
+earning records is not acceptable; these must be recoverable from backup. Notification delivery is important
+but non-critical -- a missed notification must not block the underlying workflow.
+
+1.7 Assumptions, Dependencies & Deferred Requirements
+
+                          Confidential · Prepared by QueMore for DesignArc · Page 6 of 23
+QueMore Software Requirements Specification                                                      DesignArc · Rev 1.1
+
+1.7.1 Assumptions
+
+ID       Assumption                                                                              Risk if incorrect
+
+ASM-01                                                                                              Field workflow becomes
+         All field workers have a smartphone capable of running the mobile app unusable; paper fallback
+
+                                                                                                    required
+
+ASM-02   Each worker has a unique identifying account (email or phone)                           Jobs and payments cannot
+                                                                                                 be reliably attributed
+
+ASM-03   Reliable internet is available at the workshop for photo uploads                        Inspection sign-off is
+                                                                                                 delayed
+
+ASM-04   One Supervisor role inspects both carpentry and painting                                Workflow must be
+                                                                                                 redesigned for separate
+                                                                                                 inspectors
+
+ASM-05   The app records payments but does not disburse money                                    Scope expands significantly
+                                                                                                 if disbursement is expected
+
+1.7.2 Dependencies
+
+DesignArc must provide brand assets and confirm the final role definitions before UI design begins. DesignArc
+must supply the initial list of users and their roles before User Acceptance Testing. QueMore must provision
+cloud hosting, object storage, and push-notification credentials before the staging environment is stood up.
+
+1.7.3 Deferred Requirements
+
+Feature                                      Target version                Rationale
+
+Separate Finance role for payments           v2.0                          Confirm whether Admin retains
+                                                                           payment authority (TBD-03)
+
+Materials / inventory tracking               v3.0                          Not required for core workflow value
+
+Client-facing portal                         v3.0                          Depends on core platform being
+                                                                           stable first
+
+Accounting system integration                v3.0                          Requires confirmed accounting
+                                                                           package
+
+1.8 Definitions                 Definition
+
+ Term                           A top-level unit of work for a DesignArc client, containing one or more job cards
+ Project
+ Job Card                       A single item of furniture work within a project, made up of one or more stages
+ Stage
+                                A phase of a job card assigned to one worker; either a Carpentry stage or a Painting
+ Accepted Price                 stage
+
+ Pricing History                The price for a stage after the worker accepts it, which follows Supervisor approval;
+                                the basis for the worker's payment
+ Ready for Inspection
+                                The append-only record of every price proposed, revised, accepted, and declined for
+                                a stage
+
+                                A stage status set by the worker to signal that work is complete and awaiting
+                                Supervisor inspection
+
+                                Confidential · Prepared by QueMore for DesignArc · Page 7 of 23
+QueMore Software Requirements Specification                                      DesignArc · Rev 1.1
+
+Term            Definition
+Approved
+Completed       A stage status set by the Supervisor after inspection, confirming the work is
+Rework          accepted; pricing begins only after this
+Earning Entry
+Monthly Report  A stage status reached once the worker has accepted the price set after approval
+
+                The return of a rejected stage to the same worker for correction
+
+                A per-stage record of what a worker has earned once the stage price is Accepted
+
+                A per-worker summary of jobs, earnings, and payment status for a selected calendar
+                month
+
+1.9 Acronyms & Abbreviations
+
+Acronym         Meaning
+API             Application Programming Interface
+
+JWT             JSON Web Token
+
+MVP             Minimum Viable Product
+
+NFR             Non-Functional Requirement
+
+PDF             Portable Document Format
+
+RBAC            Role-Based Access Control
+RTM             Requirement Traceability Matrix
+SRS             Software Requirements Specification
+
+TBD             To Be Determined
+
+TLS             Transport Layer Security
+
+UAT             User Acceptance Testing
+UI / UX         User Interface / User Experience
+WCAG            Web Content Accessibility Guidelines
+
+                Confidential · Prepared by QueMore for DesignArc · Page 8 of 23
+QueMore Software Requirements Specification                                               DesignArc · Rev 1.1
+
+2 References
+
+Ref.  Document                                                          Source               Date
+
+[1]   ISO/IEC/IEEE 29148:2018 -- Systems and software engineering --    ISO / IEC / IEEE     2018
+      Requirements engineering
+
+[2]   DesignArc workflow discovery notes (project  job card  carpentry  DesignArc / QueMore  Jul 2026
+       painting  inspection  payment)                                   workshop
+
+[3]   DesignArc brand identity (logo and colour palette)                DesignArc            2026
+
+[4]   OWASP Application Security Verification Standard (ASVS)           OWASP                Current
+
+[5]   Web Content Accessibility Guidelines (WCAG) 2.1 AA                W3C                  2018
+
+                Confidential · Prepared by QueMore for DesignArc · Page 9 of 23
+QueMore Software Requirements Specification                                                         DesignArc · Rev 1.1
+
+3 Specific Requirements
+
+This section is the core of the SRS. Every requirement uses the word 'shall' to denote a mandatory behaviour,
+and each is written to be individually testable.
+
+3.1 External Interfaces
+
+The system boundary is defined by the following overarching interface rules. Per-feature interface behaviour
+appears within each function block in Section 3.2.
+
+  · The mobile app shall access the device camera to capture inspection photographs, subject to the user's
+      device permission.
+
+  · The system shall exchange data between clients and server exclusively over an authenticated HTTPS/TLS
+      REST API using JSON payloads.
+
+  · The system shall store design files and inspection photos in cloud object storage and serve them only to
+      authenticated, authorised users.
+
+  · The system shall send push notifications to registered mobile devices through the platform push-
+      notification service.
+
+3.2 Functions (Functional Requirements)
+
+  Requirement writing formula
+  The system shall [perform action] [under condition] [with measurable constraint]. Each requirement expresses
+  exactly one behaviour -- no hidden 'and' -- so that it maps to a single test case.
+
+3.2.1 User Authentication & Role Management
+
+Controls who can access the platform and what each role may do. Four roles exist: Admin, Carpenter, Painter,
+and Supervisor. The Admin provisions accounts; access to every other function depends on the authenticated
+role.
+
+Stimulus / Response Sequence
+
+Stimulus (user action / trigger)                       System response
+
+A user submits login credentials                       The system authenticates the user and loads their role-
+                                                       specific home screen
+
+An Admin creates a new user and assigns a role         The system provisions the account and notifies the user
+
+A user attempts an action their role does not permit   The system blocks the action and records the attempt
+
+A user requests a password reset                       The system emails a verified reset link
+
+Functional Requirements
+
+Req. ID  Title                               Priority  The system shall ...
+                                             High
+FR-1.1   Authenticate                        High      authenticate users via email/username and password
+                                                       before granting access to any role-specific function.
+FR-1.2   Enforce RBAC
+                                                       enforce role-based access control for the four roles so each
+                                                       user can access only the functions permitted to their role.
+
+                                  Confidential · Prepared by QueMore for DesignArc · Page 10 of 23
+QueMore Software Requirements Specification                                                         DesignArc · Rev 1.1
+
+Req. ID         Title                        Priority  The system shall ...
+FR-1.3          Manage users                 High
+FR-1.4          Block & log                  Medium    allow an Admin to create, edit, and deactivate user accounts
+FR-1.5          Password reset               Medium    and assign exactly one primary role to each account.
+
+                                                       reject any action not authorised for a user's role and record
+                                                       the attempt with user ID, timestamp, and attempted action.
+
+                                                       allow a user to reset a forgotten password through a
+                                                       verified email link.
+
+Business Rules
+
+Rule ID         Rule statement
+
+BR-1.1          Each user account shall have exactly one active primary role at any time.
+
+BR-1.2          Only an Admin shall create or deactivate user accounts.
+
+3.2.2 Project Management
+Lets the Admin create and manage projects, which group related job cards for a single client engagement.
+
+Stimulus / Response Sequence
+
+Stimulus (user action / trigger)                       System response
+
+An Admin submits the new-project form                  The system creates the project with a unique ID and
+                                                       status 'Active'
+
+An Admin opens a project                               The system displays the project details and its completion
+                                                       percentage
+
+An Admin archives a project                            The system marks the project archived and hides it from
+                                                       active lists
+
+Functional Requirements
+
+Req. ID         Title                        Priority  The system shall ...
+                                             High
+FR-2.1          Create project               High      allow an Admin to create a Project with a name, client,
+                                             Medium    description, and optional deadline.
+FR-2.2          Unique ID                    Medium
+                                             Medium    assign each Project a unique identifier upon creation.
+FR-2.3          Completion roll-up
+                                                       calculate and display each Project's completion percentage
+FR-2.4          Edit / archive                         as the proportion of its job-card stages marked Approved.
+
+FR-2.5          Protect records                        allow an Admin to edit or archive a Project.
+
+                                                       prevent deletion of a Project that has job cards with
+                                                       recorded payments; such projects shall only be archived.
+
+Business Rules  Rule statement
+ Rule ID        A Project shall contain zero or more Job Cards.
+ BR-2.1
+
+                                  Confidential · Prepared by QueMore for DesignArc · Page 11 of 23
+QueMore Software Requirements Specification                                                         DesignArc · Rev 1.1
+
+Rule ID         Rule statement
+BR-2.2          Only an Admin shall create, edit, or archive a Project.
+
+3.2.3 Job Card & Stage Management
+
+A job card is a unit of furniture work within a project. Each job card has one or more sequential stages --
+Carpentry, then optionally Painting -- each with its own assignee, agreed amount, status, and photos.
+Modelling each stage as its own record keeps the two identical workflows reusable and payments per-worker
+clean.
+
+Stimulus / Response Sequence
+
+Stimulus (user action / trigger)                       System response
+
+An Admin adds a job card with design files (no price)  The system creates the job card and its configured stages
+
+A Carpentry stage is Approved                          The system unlocks the Painting stage of the same job
+                                                       card
+
+A user opens a job card                                The system displays the stage tracker, assignees,
+                                                       amounts, and attached photos
+
+Functional Requirements
+
+Req. ID         Title                        Priority  The system shall ...
+                                             High
+FR-3.1          Create job card              High      allow an Admin to create a Job Card under a Project with a
+                                             Medium    title, description, and one or more design attachments; no
+FR-3.2          Stage model                  High      price is set at this stage.
+FR-3.3          Configure stages             High
+FR-3.4          Sequence gate                Medium    support Job Card stages of type Carpentry and Painting,
+FR-3.5          Status machine                         each with its own assignee, agreed amount, status,
+                                                       inspection photos, and timestamps.
+FR-3.6          Store media
+                                                       allow an Admin to configure which stages apply to a Job
+                                                       Card (Carpentry only, or Carpentry followed by Painting).
+
+                                                       unlock the Painting stage only after the Carpentry stage of
+                                                       the same Job Card is marked Approved.
+
+                                                       maintain a status for each stage from the set: Assigned, In
+                                                       Progress, Ready for Inspection, Approved, Rejected, Price
+                                                       Proposed, Price Declined, Price Accepted, Completed.
+
+                                                       store all design attachments and inspection photos against
+                                                       the Job Card and make them viewable to the Admin, the
+                                                       assigned worker, and the Supervisor.
+
+Business Rules
+
+Rule ID         Rule statement
+
+BR-3.1          A Job Card stage price shall be set only after the stage has been Approved by the Supervisor; no
+                price exists on a stage before then.
+
+BR-3.2          Painting shall not start before Carpentry is Approved by the Supervisor on the same Job Card.
+
+                                  Confidential · Prepared by QueMore for DesignArc · Page 12 of 23
+QueMore Software Requirements Specification                                                         DesignArc · Rev 1.1
+
+3.2.4 Stage Assignment
+
+Assigns each stage to a worker at the start of the work, with the design brief but no price. Under the revised
+flow, pricing is deferred until after the Supervisor has approved the finished work (see Section 3.2.6).
+
+Stimulus / Response Sequence
+
+Stimulus (user action / trigger)                         System response
+
+An Admin assigns a stage to a carpenter or painter with  The system notifies the worker of the assignment
+the design brief
+
+The worker opens the assigned stage                      The system displays the design attachments so work can
+                                                         begin
+
+Functional Requirements
+
+Req. ID         Title                        Priority    The system shall ...
+                                             High
+FR-4.1          Assign stage                 High        allow an Admin to assign a Job Card stage to a specific
+                                             Medium      Carpenter (Carpentry) or Painter (Painting) together with
+FR-4.2          Notify assignee                          the design brief and without a price.
+FR-4.3          Provide design
+                                                         notify the assigned worker when a stage is assigned to
+                                                         them.
+
+                                                         make the design attachments for an assigned stage available
+                                                         to the assigned worker.
+
+Business Rules
+
+Rule ID         Rule statement
+
+BR-4.1          A stage shall be assigned to exactly one worker whose role matches the stage type (Carpenter for
+                Carpentry, Painter for Painting).
+
+BR-4.2          No price shall be recorded on a stage at assignment time.
+
+3.2.5 Work Execution & Supervisor Inspection
+
+The worker performs the assigned work and marks it ready. The Supervisor -- not the worker -- physically
+inspects the finished work, uploads the photographs, and approves or rejects it. Supervisor approval is what
+triggers the pricing step in Section 3.2.6. Placing photo capture and sign-off with the Supervisor gives a clean,
+independent audit trail.
+
+Stimulus / Response Sequence
+
+Stimulus (user action / trigger)                         System response
+
+The worker marks an in-progress stage 'Ready for         The system sets the status and notifies the Supervisor
+Inspection'
+
+The Supervisor inspects, uploads photos, and approves    The system sets the stage to Approved and records
+                                                         photos, notes, identity, and time
+
+The Supervisor rejects with a reason                     The system returns the stage to In Progress and notifies
+                                                         the worker for rework
+
+                                  Confidential · Prepared by QueMore for DesignArc · Page 13 of 23
+QueMore Software Requirements Specification                                                                              DesignArc · Rev 1.1
+
+Functional Requirements                                The system shall ...
+
+Req. ID         Title                        Priority  allow the assigned worker to mark a stage as Ready for
+                                                       Inspection once work has commenced (no price is required
+FR-5.1          Mark ready                   High      at this point).
+
+FR-5.2          Notify Supervisor            High      notify the Supervisor when any stage is marked Ready for
+                                                       Inspection.
+FR-5.3          Supervisor photos            High
+                                                       allow only the Supervisor to upload inspection photographs
+FR-5.4          Approve stage                High      against a stage.
+
+FR-5.5          Reject / rework              High      allow the Supervisor to Approve a stage, setting its status to
+FR-5.6          Require evidence             Medium    Approved and recording the Supervisor's identity, photos,
+                                                       notes, and timestamp, which makes the stage eligible for
+                                                       pricing.
+
+                                                       allow the Supervisor to Reject a stage with a mandatory
+                                                       reason, returning it to In Progress and notifying the assigned
+                                                       worker.
+
+                                                       require at least one inspection photograph before a stage
+                                                       can be Approved.
+
+Business Rules
+
+Rule ID         Rule statement
+
+BR-5.1          Only the Supervisor shall upload inspection photos and mark a stage Approved or Rejected.
+
+BR-5.2          A stage rejection shall return the same stage to the same assigned worker, not create a new stage.
+
+3.2.6 Post-Inspection Pricing
+
+Pricing happens only after the Supervisor approves a stage. The Admin sets the price for the approved stage;
+the assigned worker then Accepts or Declines it. If declined, the Admin sets a revised price and the worker
+reviews again. Acceptance finalises the stage (status Completed) and creates the worker's earning. This is the
+key change from the earlier flow, where a price was proposed at job-card creation.
+
+Stimulus / Response Sequence
+
+Stimulus (user action / trigger)                       System response
+
+A stage is Approved by the Supervisor                  The system enables the Admin to set the stage price
+
+The Admin sets the price                               The system sets the stage to Price Proposed and notifies
+                                                       the assigned worker
+
+The worker accepts the price                           The system sets the stage to Price Accepted, then
+                                                       Completed, and creates an earning entry
+
+The worker declines the price                          The system sets the stage to Price Declined and notifies
+                                                       the Admin
+
+The Admin sets a revised price                         The system returns the stage to Price Proposed for the
+                                                       worker to review again
+
+                                  Confidential · Prepared by QueMore for DesignArc · Page 14 of 23
+QueMore Software Requirements Specification                                                                               DesignArc · Rev 1.1
+
+Functional Requirements                                 The system shall ...
+
+Req. ID         Title                        Priority   enable price entry for a stage only after that stage has been
+                                                        Approved by the Supervisor.
+FR-6.1          Enable pricing               High
+                                                        allow the Admin to set the price for an approved stage,
+FR-6.2          Set price                    High       upon which the stage status shall become Price Proposed
+                                                        and the assigned worker shall be notified.
+FR-6.3          Accept price                 High
+                                                        allow the assigned worker to Accept the proposed price,
+FR-6.4          Decline price                High       upon which the stage status shall become Price Accepted
+                                                        and then Completed.
+FR-6.5          Revise price                 High
+                                                        allow the assigned worker to Decline the proposed price,
+FR-6.6          Pricing history              High       upon which the stage status shall become Price Declined
+                                                        and the Admin shall be notified.
+
+                                                        allow the Admin to set a revised price for a declined stage,
+                                                        returning it to Price Proposed for the worker to review.
+
+                                                        record every proposed price, revised price, acceptance, and
+                                                        decline with the actor, value, optional reason, and
+                                                        timestamp as an immutable pricing history.
+
+Business Rules
+
+Rule ID         Rule statement
+
+BR-6.1          A stage price shall be set only after Supervisor approval of that stage.
+
+BR-6.2          Only the worker assigned to a stage shall accept or decline that stage's price.
+
+BR-6.3          Only an Admin shall set or revise a stage price.
+
+BR-6.4          The price at Price Accepted shall be the amount used for that worker's payment for that stage.
+
+3.2.7 Notifications
+Keeps every party informed at each handoff so work never stalls waiting on a phone call.
+
+Stimulus / Response Sequence
+
+Stimulus (user action / trigger)                        System response
+
+A workflow event occurs (assignment, ready, inspection  The system sends an in-app notification to the party
+result, price proposed/revised, accept/decline)         concerned
+
+A mobile user has an event addressed to them            The system delivers a push notification where the device
+                                                        permits
+
+Functional Requirements
+
+Req. ID         Title                        Priority   The system shall ...
+                                             High
+FR-7.1          Event alerts                            send an in-app notification to the relevant recipient on each
+                                                        of: stage assignment, ready-for-inspection, inspection
+                                                        approval, inspection rejection, price proposed or revised,
+                                                        price acceptance, and price decline.
+
+                                  Confidential · Prepared by QueMore for DesignArc · Page 15 of 23
+QueMore Software Requirements Specification                                                         DesignArc · Rev 1.1
+
+Req. ID         Title                        Priority  The system shall ...
+FR-7.2          Unread indicator             Low
+FR-7.3          Push delivery                Medium    display an unread-notification indicator to each user until
+                                                       notifications are viewed.
+
+                                                       deliver notifications to mobile users via push notification
+                                                       where the device permits.
+
+Business Rules  Rule statement
+ Rule ID        A notification shall be addressed only to the role(s) party to the event that generated it.
+ BR-7.1
+
+3.2.8 Payments & Financial Records
+
+Records what each worker has earned per completed stage and tracks whether it has been paid. An earning
+arises only once the worker has accepted the price set after Supervisor approval. The system records
+payment status; it does not move money.
+
+Stimulus / Response Sequence
+
+Stimulus (user action / trigger)                       System response
+
+A stage reaches Price Accepted (Completed)             The system creates an earning entry for the worker equal
+                                                       to the accepted price
+
+An Admin marks an earning entry as Paid                The system records the payment date and acting Admin
+
+Functional Requirements
+
+Req. ID         Title                        Priority  The system shall ...
+                                             High
+FR-8.1          Record earning               High      record, for each stage that reaches Price Accepted, an
+                                             Medium    earning entry for the assigned worker equal to the accepted
+FR-8.2          Payment status               High      price.
+FR-8.3          Mark paid
+FR-8.4          Guard earnings                         maintain a payment status of Unpaid or Paid for each
+                                                       worker earning entry.
+
+                                                       allow an Admin to mark a worker earning entry as Paid,
+                                                       recording the date and the acting Admin.
+
+                                                       prevent an earning entry from being created for a stage
+                                                       whose price has not been Accepted by the worker.
+
+Business Rules  Rule statement
+ Rule ID
+ BR-8.1         A worker shall earn payment for a stage only after that worker has Accepted the stage's price, which
+ BR-8.2         follows Supervisor approval.
+
+                Only an Admin shall change a payment status to Paid.
+
+3.2.9 Dashboard & Reporting
+
+                                  Confidential · Prepared by QueMore for DesignArc · Page 16 of 23
+QueMore Software Requirements Specification                                                         DesignArc · Rev 1.1
+
+Gives the Admin a live operational picture and gives each worker a transparent monthly statement of jobs
+and pay.
+
+Stimulus / Response Sequence
+
+Stimulus (user action / trigger)                       System response
+
+An Admin opens the dashboard                           The system displays active-project counts, stage status
+                                                       counts, stages awaiting pricing, declined-price stages, and
+                                                       unpaid totals
+
+A worker selects a month on their report               The system lists that month's completed jobs, accepted
+                                                       prices, and payment status
+
+A worker taps 'Download PDF'                           The system generates a PDF of the monthly report
+
+Functional Requirements
+
+Req. ID         Title                        Priority  The system shall ...
+                                             High
+FR-9.1          Admin dashboard                        present the Admin a dashboard showing counts of active
+                                             High      projects, job-card stages by status, stages awaiting a price,
+FR-9.2          Action queues                          stages with a declined price, and total unpaid payments.
+                                             High
+FR-9.3          Monthly report               Medium    present the Admin actionable queues of approved stages
+FR-9.4          PDF export                   Medium    awaiting a price and declined-price stages awaiting a revised
+FR-9.5          Workload view                          price.
+
+                                                       generate, for each Carpenter and Painter, a monthly report
+                                                       listing jobs completed, accepted price per job, total earned,
+                                                       amount paid, and amount outstanding for a selected month.
+
+                                                       allow a worker to export their monthly report as a PDF.
+
+                                                       display worker workload (assigned, in-progress, and
+                                                       overdue stages) to the Admin.
+
+Business Rules  Rule statement
+ Rule ID
+ BR-9.1         A worker shall view monthly reports only for their own account.
+
+ BR-9.2         The monthly report shall include only stages Completed (price accepted) within the selected
+                calendar month.
+
+3.3 Usability Requirements
+
+ID              Requirement                                                                         Verification
+NFR-U.1                                                                                             Tap-count test
+                A worker shall be able to accept or decline a stage price within 3 taps from
+                the mobile home screen.
+
+NFR-U.2         A first-time Supervisor shall complete an inspection (open job, upload              Moderated usability
+                photo, approve) without written instructions within 3 minutes.                      test
+
+NFR-U.3         Error messages shall state what went wrong and how to correct it.                   QA checklist of error
+                                                                                                    states
+
+                                  Confidential · Prepared by QueMore for DesignArc · Page 17 of 23
+QueMore Software Requirements Specification                                                 DesignArc · Rev 1.1
+
+ID       Requirement                                                                  Verification
+NFR-U.4                                                                               Accessibility scan
+NFR-U.5  All interactive elements shall meet the minimum touch-target size defined    Inspection
+         by the target platform guidelines.
+
+         The Admin dashboard's primary KPIs shall be visible without scrolling on a
+         1366×768 display.
+
+3.4 Performance Requirements
+
+ID       Area                                Measurable Target
+
+NFR-P.1  Screen load                         Any primary screen (dashboard, job list, job detail) shall fully render
+                                             within 3 seconds at p95 under normal load on a 4G connection.
+NFR-P.2  Action response
+                                             A price set/accept/decline action shall complete within 2 seconds at
+NFR-P.3  Concurrent users                    p95 under normal load.
+
+NFR-P.4  Availability                        The system shall support 200 simultaneous authenticated users without
+                                             response-time degradation exceeding 20%.
+NFR-P.5  Photo upload
+NFR-P.6  Report generation                   The system shall achieve 99.5% monthly uptime excluding approved
+                                             maintenance windows.
+
+                                             Upload of up to 10 inspection photos (max 5 MB each) shall complete
+                                             within 15 seconds at p95 on 4G.
+
+                                             A worker monthly report shall be generated within 5 seconds at p95.
+
+3.5 Logical Database Requirements
+
+The database design shall satisfy the following requirements-level entity model.
+
+Entity             Key attributes                                      Relationships
+User
+Project            id, name, contact, role, status                     Assigned to Stages; acts on
+Job Card                                                               Payments
+Stage
+                   id, name, client, deadline, status                  Has many Job Cards
+Pricing History
+Inspection Photo   id, project_id, title, description                  Belongs to Project; has many
+Payment / Earning                                                      Stages; has Attachments
+Notification
+                   id, job_card_id, type, assignee_id, price, status,  Belongs to Job Card; has Pricing
+                   timestamps                                          History, Photos, Earning
+
+                   id, stage_id, actor_id, value, action               Belongs to Stage; append-only;
+                   (proposed/revised/accepted/declined), reason,       populated after approval
+                   timestamp
+
+                   id, stage_id, supervisor_id, file_ref, timestamp    Belongs to Stage
+
+                   id, stage_id, worker_id, amount, status, paid_date Belongs to Stage and Worker
+
+                   id, recipient_id, event_type, ref, read_flag, timestamp Belongs to User
+
+Data integrity rules:
+  · Every Project, Job Card, Stage, and Payment shall have a system-generated unique identifier.
+  · The Pricing History table shall be append-only; existing entries shall never be modified or deleted.
+
+                                               Confidential · Prepared by QueMore for DesignArc · Page 18 of 23
+QueMore Software Requirements Specification                                               DesignArc · Rev 1.1
+
+· Projects and Users shall be soft-deleted (archived/deactivated), never hard-deleted, where related
+   records exist.
+
+· Inspection photos and earning records shall be retained for a minimum defined period (see TBD-04).
+· An Earning record shall exist only for a Stage whose price has been Accepted (status Completed).
+
+3.6 Design Constraints
+
+Category                Constraint
+Branding
+                        The application UI shall follow the DesignArc brand identity: forest green (#4E7A54)
+                        primary, brick red (#B23A2E) accent, cream (#F7F4EE) background.
+
+Technology              Cross-platform mobile app and responsive web admin over a shared REST API and
+                        relational database, cloud-hosted (specific stack pending TBD-01).
+
+Security                bcrypt password hashing (cost 12); TLS 1.2+ in transit; signed JWT session tokens;
+                        RBAC on every endpoint; access-controlled media storage.
+
+Compliance              Support correction and erasure of personal data where no legal retention requirement
+                        applies; follow OWASP ASVS practices.
+
+3.7 Standards Compliance                     What compliance requires
+
+ Standard                                    This SRS's structure and requirement quality criteria (this document is the
+ ISO/IEC/IEEE 29148:2018                     evidence)
+ WCAG 2.1 AA
+ OWASP ASVS                                  Colour contrast, touch-target sizing, and keyboard/screen-reader
+ ISO 8601                                    accessibility for key journeys
+
+                                             Authentication, access-control, and data-protection verification during
+                                             security testing
+
+                                             All stored and displayed timestamps use the ISO 8601 date/time format
+
+3.8 Software System Attributes
+
+3.8.1 Reliability
+The system shall guarantee that pricing history, inspection photos, and earning records are never lost once
+committed, and shall roll back any transaction that fails part-way so that no partial stage or payment record
+is created.
+
+3.8.2 Availability
+The system shall achieve 99.5% monthly uptime excluding approved maintenance windows, with automated
+health checks and alerting (see NFR-P.4).
+
+3.8.3 Security
+The system shall authenticate every request with a signed token, authorise every action through RBAC, hash
+passwords with bcrypt (cost 12), encrypt all traffic with TLS 1.2+, restrict media access to authorised users,
+and maintain an audit log of authentication failures and permission-denied events.
+
+3.8.4 Maintainability
+
+                        Confidential · Prepared by QueMore for DesignArc · Page 19 of 23
+QueMore Software Requirements Specification                       DesignArc · Rev 1.1
+
+The system shall be built with a modular architecture, documented REST API, agreed coding standards, and
+automated tests achieving a minimum of 80% coverage on business-logic modules, delivered through a CI/CD
+pipeline.
+
+3.8.5 Portability & Scalability
+The mobile app shall run on current supported Android and iOS versions and the web app on current
+Chrome, Edge, Firefox, and Safari. The backend shall be deployable as containers and shall scale horizontally
+to meet the 200-concurrent-user target in NFR-P.3.
+
+Confidential · Prepared by QueMore for DesignArc · Page 20 of 23
+QueMore Software Requirements Specification                                      DesignArc · Rev 1.1
+
+4 Verification
+
+Every requirement is mapped to one of four verification methods -- Test (T), Demonstration (D), Inspection
+(I), or Analysis (A). A requirement is considered verified only when evidence is recorded against its ID and
+reviewed by the responsible QA lead or stakeholder.
+
+Method         Symbol                        When used
+Test           T
+Demonstration  D                             Requirements with measurable numerical targets (e.g., p95 response
+Inspection     I                             time)
+Analysis       A
+                                             Requirements shown working end-to-end (e.g., the inspection
+                                             workflow)
+
+                                             Requirements verified by reviewing code, config, or documentation
+                                             (e.g., bcrypt use)
+
+                                             Requirements proven by calculation or modelling (e.g., concurrency
+                                             capacity)
+
+Verification Matrix                          Primary Method        Verification Approach
+                                             Test / Inspection
+ Requirement Group                           Test / Demonstration  RBAC tests, negative permission tests,
+ FR-1.x -- Auth & Roles                      Test / Demonstration  credential-flow tests
+ FR-2.x -- Projects                          Test / Demonstration
+ FR-3.x -- Job Cards & Stages                Demonstration / Test  CRUD tests, completion roll-up checks
+ FR-4.x -- Stage Assignment
+ FR-5.x -- Execution & Inspection            Test / Demonstration  Status-machine tests, stage-sequence gate
+                                             Demonstration         tests
+ FR-6.x -- Post-Inspection Pricing           Test
+ FR-7.x -- Notifications                     Test / Demonstration  Assignment tests, role-match and no-price-at-
+ FR-8.x -- Payments                          Demonstration /       assignment checks
+ FR-9.x -- Dashboard & Reports               Inspection
+ NFR-U.x -- Usability                        Test / Analysis       End-to-end inspection walkthroughs, photo-
+ NFR-P.x -- Performance                      Inspection / Test     required tests
+ Security requirements
+                                                                   Price-after-approval gate,
+                                                                   accept/decline/revise flow, pricing-history
+                                                                   immutability
+
+                                                                   Event-to-recipient delivery checks
+
+                                                                   Earning-on-accept guards, paid/unpaid state
+                                                                   tests
+
+                                                                   KPI accuracy tests, monthly report and PDF
+                                                                   checks
+
+                                                                   Usability sessions, tap-count walkthroughs,
+                                                                   accessibility scans
+
+                                                                   Load tests, p95 timing evidence, capacity
+                                                                   analysis
+
+                                                                   Code review, configuration audit, penetration
+                                                                   test
+
+               Confidential · Prepared by QueMore for DesignArc · Page 21 of 23
+QueMore Software Requirements Specification                                                 DesignArc · Rev 1.1
+
+5 Supporting Information
+
+5.A Appendix A -- Requirement Traceability Matrix (RTM)
+
+The RTM is maintained as a live document and updated throughout development. It maps each requirement
+to its source, delivery version, verification method, and test case. Representative rows:
+
+Requirement               Source             Version                    Verification        Test Case
+FR-1.2 -- RBAC            Workshop [2]       MVP                        Test                TC-101
+FR-5.4 -- Approve stage   Workshop [2]       MVP                        Demo                TC-154
+FR-6.3 -- Accept price    Workshop [2]       MVP                        Test / Demo         TC-163
+FR-9.3 -- Monthly report  Workshop [2]       v1.0                       Test                TC-193
+NFR-P.1 -- Screen load    Perf objective     v1.0                       Test / Analysis     TC-301
+
+5.B Appendix B -- Phased Feature Roadmap
+
+Version  Focus                               Representative Features
+MVP      Core workflow value
+                                             Roles & auth, projects, job cards & stages, stage
+v1.0     Full first release                  assignment, inspection with photos, post-inspection
+v2.0     Expansion & automation              pricing (set  accept/decline), per-stage earnings, basic
+v3.0     Advanced capabilities               dashboard
+
+                                             Full KPI dashboard & approval queue, monthly PDF
+                                             reports, push notifications, completion roll-up, workload
+                                             views
+
+                                             Separate Finance role, richer analytics, overdue/deadline
+                                             alerts
+
+                                             Materials/inventory, client portal, accounting integration,
+                                             forecasting
+
+5.C Appendix C -- TBD Resolution Log
+
+TBD ID   Open item                                                      Owner               Deadline
+
+TBD-01   Confirm technology stack (mobile framework, hosting provider)  QueMore Tech        Design
+                                                                        Lead
+
+TBD-02   Confirm currency/locale handling (LKR only or multi-currency)  DesignArc           Design
+TBD-03
+TBD-04   Confirm whether a separate Finance role is required for payments DesignArc         Sprint 1
+
+         Confirm retention period for inspection photos and records     DesignArc / Legal Sprint 1
+
+TBD-05   Confirm maximum photo count and size per inspection            QueMore /           Design
+                                                                        DesignArc
+
+                          Confidential · Prepared by QueMore for DesignArc · Page 22 of 23
+QueMore Software Requirements Specification                                                          DesignArc · Rev 1.1
+
+6 References to Verification Artefacts
+
+Verification artefacts are maintained as separate controlled documents and referenced here, keeping this
+SRS focused on requirements.
+
+Artefact                         Description                                                  Owner
+Requirement Traceability Matrix
+Test Specifications              Live RTM mapping every FR to test case and version QueMore QA Lead
+Usability Study Reports
+Performance Test Results         Detailed test cases derived from FR, BR, and NFR IDs QueMore QA Team
+Penetration Test Report
+                                 Moderated and unmoderated usability session results QueMore UX Lead
+
+                                 Load test reports with p95/p99 evidence                      QueMore QA / DevOps
+
+                                 Security vulnerability assessment results                    Security Team
+
+Final Approval
+
+This SRS is baselined when all approvers have signed. A baselined SRS may only be changed through the
+formal change-control process, which requires a new version number, a revision-history entry, and re-
+approval by affected parties.
+
+Role                             Name         Signature / Date
+Business Owner (DesignArc)
+Product Owner (QueMore)
+Development Lead (QueMore)
+QA Lead (QueMore)
+
+-- END OF DOCUMENT -- DesignArc SRS · Prepared by QueMore · ISO/IEC/IEEE 29148:2018 --
+
+                            Confidential · Prepared by QueMore for DesignArc · Page 23 of 23
+

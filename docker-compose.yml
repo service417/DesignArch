@@ -1,0 +1,37 @@
+# Local dev infrastructure for the DesignArc API.
+# Brings up PostgreSQL + Redis so the backend can run end-to-end.
+# Usage: docker compose up -d   (then: pnpm --filter @designarc/api migrate:dev)
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: designarc-postgres
+    environment:
+      POSTGRES_USER: designarc
+      POSTGRES_PASSWORD: designarc_dev_pw
+      POSTGRES_DB: designarc
+    ports:
+      - "5432:5432"
+    volumes:
+      - designarc-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U designarc -d designarc"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: designarc-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - designarc-redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  designarc-pgdata:
+  designarc-redisdata:

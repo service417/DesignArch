@@ -1,0 +1,18 @@
+{
+  "name": "designarc",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DesignArc — Furniture Manufacturing Workflow Platform (monorepo)",
+  "engines": {
+    "node": ">=24",
+    "pnpm": ">=10"
+  },
+  "scripts": {
+    "api:dev": "pnpm --filter @designarc/api start:dev",
+    "api:build": "pnpm --filter @designarc/api build",
+    "api:test": "pnpm --filter @designarc/api test",
+    "build": "pnpm -r build",
+    "test": "pnpm -r test"
+  },
+  "packageManager": "pnpm@10.28.2"
+}
