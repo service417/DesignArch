@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
@@ -12,6 +13,7 @@ import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { evaluateTransition } from '../domain/stage-state-machine';
 import { parseMinorUnits } from '../domain/money';
+import { STORAGE_PROVIDER, StorageProvider } from '../storage/storage.types';
 import {
   Actor,
   StageAction,
@@ -20,6 +22,9 @@ import {
   StageStatus,
   TransitionPayload,
 } from '../domain/stage.types';
+
+/** Long enough for an admin to review a stage without the images going stale. */
+const PHOTO_URL_TTL_SECONDS = 900;
 
 /** Which stage actions are pricing events, and how they appear in the ledger. */
 const LEDGER_ACTION: Partial<Record<StageAction, PricingAction>> = {
@@ -46,6 +51,7 @@ export class StagesService {
     private readonly prisma: PrismaService,
     private readonly audit: AuditService,
     private readonly notifications: NotificationsService,
+    @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
 
   /**
@@ -182,6 +188,114 @@ export class StagesService {
 
       return { id: stageId, status: settled.status, version: settled.version };
     });
+  }
+
+  /**
+   * The Admin's action queue (FR-9.1): stages approved and awaiting a price, and
+   * stages whose price was declined and awaits revision.
+   *
+   * This is the pinned daily entry point for an admin, and the partial index
+   * `stage_awaiting_admin_action` exists specifically to serve it.
+   */
+  async awaitingAdminAction() {
+    const stages = await this.prisma.stage.findMany({
+      where: { status: { in: ['APPROVED', 'PRICE_DECLINED'] } },
+      // Oldest first: the queue is work to clear, so the stage that has waited
+      // longest is the one that needs attention, not the newest arrival.
+      orderBy: { updatedAt: 'asc' },
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        version: true,
+        updatedAt: true,
+        approvedAt: true,
+        assignee: { select: { id: true, name: true, role: true } },
+        jobCard: {
+          select: {
+            id: true,
+            title: true,
+            project: { select: { id: true, name: true, client: true } },
+          },
+        },
+        _count: { select: { photos: true } },
+        // The last price on the table, so the admin can see what was declined
+        // without opening the stage.
+        pricingHistory: {
+          where: { action: { in: ['PROPOSED', 'REVISED', 'DECLINED'] } },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { action: true, value: true, reason: true, createdAt: true },
+        },
+      },
+    });
+
+    return stages.map(({ pricingHistory, ...stage }) => ({
+      ...stage,
+      lastPricingEvent: pricingHistory[0] ?? null,
+    }));
+  }
+
+  /** Full stage detail: the work, its evidence, and its complete price history. */
+  async findOne(id: string) {
+    const stage = await this.prisma.stage.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        version: true,
+        sequenceNo: true,
+        acceptedPrice: true,
+        rejectionReason: true,
+        approvedAt: true,
+        completedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        assignee: { select: { id: true, name: true, role: true } },
+        jobCard: {
+          select: {
+            id: true,
+            title: true,
+            description: true,
+            project: { select: { id: true, name: true, client: true } },
+          },
+        },
+        earning: { select: { id: true, amount: true, status: true, paidAt: true } },
+        photos: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            fileRef: true,
+            createdAt: true,
+            supervisor: { select: { id: true, name: true } },
+          },
+        },
+        pricingHistory: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            action: true,
+            value: true,
+            reason: true,
+            createdAt: true,
+            actor: { select: { id: true, name: true, role: true } },
+          },
+        },
+      },
+    });
+
+    if (!stage) throw new NotFoundException(`Stage ${id} was not found.`);
+
+    // A raw file_ref is useless to a client. Hand back short-lived signed URLs
+    // instead, so evidence renders in an <img> without exposing the object key.
+    return {
+      ...stage,
+      photos: stage.photos.map(({ fileRef, ...photo }) => ({
+        ...photo,
+        url: this.storage.signedUrl(fileRef, PHOTO_URL_TTL_SECONDS),
+      })),
+    };
   }
 
   /**

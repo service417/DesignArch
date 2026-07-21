@@ -16,12 +16,13 @@
   },
   "packageManager": "pnpm@10.28.2",
   "pnpm": {
-    "//": "pnpm 10 blocks postinstall scripts by default. These four need them: Prisma downloads its query engines, bcrypt builds/fetches its native binding. @scarf/scarf is analytics and is deliberately left unapproved.",
+    "//": "pnpm 10 blocks postinstall scripts by default. These five need them: Prisma downloads its query engines, bcrypt builds/fetches its native binding, and esbuild (via Vite) links its platform binary. @scarf/scarf is analytics and is deliberately left unapproved.",
     "onlyBuiltDependencies": [
       "@prisma/client",
       "@prisma/engines",
       "prisma",
-      "bcrypt"
+      "bcrypt",
+      "esbuild"
     ]
   }
 }

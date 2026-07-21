@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Ip, Param, Post, Req } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Ip, Param, Post, Req } from '@nestjs/common';
 import { StagesService } from './stages.service';
 import { Roles } from '../auth/roles.decorator';
 import { AuthenticatedRequest } from '../auth/authenticated-request';
@@ -21,6 +21,24 @@ import { Actor } from '../domain/stage.types';
 @Controller('stages')
 export class StagesController {
   constructor(private readonly stages: StagesService) {}
+
+  /**
+   * The Admin's daily queue: approved work awaiting a price, and declined
+   * prices awaiting revision. Declared before `:id` so the literal path is not
+   * captured by the parameter route.
+   */
+  @Get('awaiting-pricing')
+  @Roles('ADMIN')
+  awaitingPricing() {
+    return this.stages.awaitingAdminAction();
+  }
+
+  /** Stage detail: evidence and the full price history behind it. */
+  @Get(':id')
+  @Roles('ADMIN', 'CARPENTER', 'PAINTER', 'SUPERVISOR')
+  findOne(@Param('id') id: string) {
+    return this.stages.findOne(id);
+  }
 
   @Post(':id/start')
   @Roles('CARPENTER', 'PAINTER')
