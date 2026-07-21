@@ -12,7 +12,10 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - designarc-pgdata:/var/lib/postgresql/data
+      # Postgres 18+ stores data in a major-version subdirectory, so the mount
+      # goes one level up at /var/lib/postgresql (not .../data) - see
+      # https://github.com/docker-library/postgres/pull/1259
+      - designarc-pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U designarc -d designarc"]
       interval: 5s
