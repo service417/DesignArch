@@ -80,8 +80,16 @@ validated server-side by magic bytes rather than by the declared content type.
 **Why:** Matches the NFR-P.5 performance target (10 photos uploaded within 15s
 p95 on 4G).
 
-**Encoded in:** `MAX_INSPECTION_PHOTOS` / `MAX_PHOTO_BYTES` in `.env.example`.
-Upload enforcement lands with the media module.
+**Encoded in:** `MAX_INSPECTION_PHOTOS` / `MAX_PHOTO_BYTES` in `.env.example`,
+enforced by `MediaService` and unit-tested in `media/image-type.spec.ts`. Both
+limits are re-checked in the service rather than trusted to Multer's, so the rule
+holds however a file arrives.
+
+**Also decided — evidence is captured during inspection only.** Photographs may
+be added solely while a stage is `READY_FOR_INSPECTION`. Allowing them after
+approval would let the evidence record be furnished after the fact, which is the
+precise tampering the trail exists to prevent. There is no delete endpoint
+(see C4).
 
 ---
 
@@ -139,3 +147,28 @@ ledger ever disagree, that disagreement is *detectable* rather than silent.
 **Encoded in:** `src/domain/pricing-ledger.ts` — `projectLedger()` derives the
 price, and `reconcile()` reports disagreement. A periodic reconciliation job
 should call it; **that job is not yet built**.
+
+---
+
+## Additional decision — storage is an interface, S3 is a binding
+
+**Decided:** Everything depends on the `StorageProvider` interface. The only
+implementation today is `LocalDiskStorage`, which writes under
+`apps/api/.local-storage`. TBD-01's S3-compatible storage remains the production
+answer.
+
+**Why:** Object storage is a deployment concern; the rules about *what may be
+stored, by whom, and when* are the domain concern, and only the latter can block
+an approval and therefore a payment. Building against the interface let the
+inspection-evidence path — and with it the whole money path through to a recorded
+earning — be proven end to end without waiting on infrastructure. The S3 provider
+is a new class plus one `useClass` change in `StorageModule`.
+
+**Consequence:** Local disk is single-machine and unreplicated, so it is
+development-only. `UrlSigner` and the `GET /media/file` route exist solely to give
+the local provider the short-lived signed URLs the blueprint requires; against S3
+the URL points at the bucket and both become dead code to delete.
+
+**Encoded in:** `src/storage/`. Traversal and signature-forgery guards are
+unit-tested in `local-disk.storage.spec.ts` and `url-signer.spec.ts` — over HTTP
+the signature check masks the traversal guard, so it must be proven directly.

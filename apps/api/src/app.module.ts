@@ -8,6 +8,8 @@ import { AuthModule } from './auth/auth.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ProjectsModule } from './projects/projects.module';
 import { StagesModule } from './stages/stages.module';
+import { StorageModule } from './storage/storage.module';
+import { MediaModule } from './media/media.module';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { RolesGuard } from './auth/roles.guard';
 
@@ -31,11 +33,13 @@ import { RolesGuard } from './auth/roles.guard';
       { name: 'long', ttl: 60_000, limit: 120 },
     ]),
     PrismaModule,
+    StorageModule,
     AuditModule,
     AuthModule,
     NotificationsModule,
     ProjectsModule,
     StagesModule,
+    MediaModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
