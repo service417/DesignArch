@@ -1,4 +1,14 @@
-import { Body, Controller, Get, Ip, Param, Post, Req, UseInterceptors } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Ip,
+  Param,
+  Post,
+  Query,
+  Req,
+  UseInterceptors,
+} from '@nestjs/common';
 import { StagesService } from './stages.service';
 import { IdempotencyInterceptor } from '../common/idempotency.interceptor';
 import { Roles } from '../auth/roles.decorator';
@@ -32,6 +42,23 @@ export class StagesController {
   @Roles('ADMIN')
   awaitingPricing() {
     return this.stages.awaitingAdminAction();
+  }
+
+  /**
+   * The signed-in worker's own stages. Scoped from the token, so there is no
+   * parameter through which one worker could read another's workload.
+   */
+  @Get('mine')
+  @Roles('CARPENTER', 'PAINTER')
+  mine(@Req() req: AuthenticatedRequest, @Query('includeCompleted') includeCompleted?: string) {
+    return this.stages.assignedTo(req.user!.id, includeCompleted === 'true');
+  }
+
+  /** The supervisor's inspection queue. */
+  @Get('awaiting-inspection')
+  @Roles('SUPERVISOR')
+  awaitingInspection() {
+    return this.stages.awaitingInspection();
   }
 
   /** Stage detail: evidence and the full price history behind it. */

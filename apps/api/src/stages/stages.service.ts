@@ -26,6 +26,49 @@ import {
 /** Long enough for an admin to review a stage without the images going stale. */
 const PHOTO_URL_TTL_SECONDS = 900;
 
+/**
+ * What a stage looks like in a list.
+ *
+ * Carries the current proposed price, because the worker's whole decision on
+ * their queue screen is "do I accept this?" — making them open each stage to
+ * find out would be a round trip per row on a workshop connection.
+ */
+const STAGE_LIST_VIEW = {
+  id: true,
+  type: true,
+  status: true,
+  version: true,
+  updatedAt: true,
+  acceptedPrice: true,
+  rejectionReason: true,
+  assignee: { select: { id: true, name: true, role: true } },
+  jobCard: {
+    select: {
+      id: true,
+      title: true,
+      description: true,
+      project: { select: { id: true, name: true, client: true } },
+    },
+  },
+  _count: { select: { photos: true } },
+  // The amount currently on the table. `acceptedPrice` is null until *after*
+  // acceptance, so on its own it cannot answer the only question a worker has
+  // on this screen.
+  pricingHistory: {
+    where: { action: { in: ['PROPOSED', 'REVISED'] } },
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+    select: { value: true, createdAt: true },
+  },
+} satisfies Prisma.StageSelect;
+
+type StageListRow = Prisma.StageGetPayload<{ select: typeof STAGE_LIST_VIEW }>;
+
+/** Flatten the one-row pricing history into a plain `proposedPrice`. */
+function withProposal({ pricingHistory, ...stage }: StageListRow) {
+  return { ...stage, proposedPrice: pricingHistory[0]?.value ?? null };
+}
+
 /** Which stage actions are pricing events, and how they appear in the ledger. */
 const LEDGER_ACTION: Partial<Record<StageAction, PricingAction>> = {
   PROPOSE_PRICE: 'PROPOSED',
@@ -234,6 +277,41 @@ export class StagesService {
       ...stage,
       lastPricingEvent: pricingHistory[0] ?? null,
     }));
+  }
+
+  /**
+   * The worker's own queue: every stage assigned to them (FR-3.6).
+   *
+   * Scoped from the token, never from a parameter — a worker must not be able to
+   * read someone else's workload, which would expose what they are being paid
+   * for. Ordered by the stage's own progress so today's job is at the top.
+   */
+  async assignedTo(workerId: string, includeCompleted = false) {
+    const stages = await this.prisma.stage.findMany({
+      where: {
+        assigneeId: workerId,
+        ...(includeCompleted ? {} : { status: { not: 'COMPLETED' } }),
+      },
+      orderBy: [{ status: 'asc' }, { updatedAt: 'desc' }],
+      select: STAGE_LIST_VIEW,
+    });
+    return stages.map(withProposal);
+  }
+
+  /**
+   * The supervisor's inspection queue (FR-5.1).
+   *
+   * Every supervisor sees every stage awaiting inspection — the multi-supervisor
+   * decision (C1) means work is not tied to one inspector, so whoever is on site
+   * can inspect it. Oldest first: this is a queue to clear.
+   */
+  async awaitingInspection() {
+    const stages = await this.prisma.stage.findMany({
+      where: { status: 'READY_FOR_INSPECTION' },
+      orderBy: { updatedAt: 'asc' },
+      select: STAGE_LIST_VIEW,
+    });
+    return stages.map(withProposal);
   }
 
   /** Full stage detail: the work, its evidence, and its complete price history. */
