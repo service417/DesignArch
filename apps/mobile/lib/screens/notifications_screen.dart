@@ -50,7 +50,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = context.read<Session>().api.notifications());
+    setState(() {
+      _future = context.read<Session>().api.notifications();
+    });
     await _future;
   }
 

@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { evaluateTransition } from '../domain/stage-state-machine';
+import { projectLedger } from '../domain/pricing-ledger';
 import { parseMinorUnits } from '../domain/money';
 import { STORAGE_PROVIDER, StorageProvider } from '../storage/storage.types';
 import {
@@ -365,10 +366,28 @@ export class StagesService {
 
     if (!stage) throw new NotFoundException(`Stage ${id} was not found.`);
 
+    // The amount currently on the table, derived by replaying the ledger rather
+    // than stored — `projectLedger` is the same tested function the domain uses,
+    // so detail and list cannot disagree about what is being offered.
+    //
+    // The list endpoints carry this too. Without it here, a client that opened a
+    // stage could show a price on the card and nothing on the screen that asks
+    // the worker to accept it — which is exactly the wrong place to be vague.
+    const { currentProposal } = projectLedger(
+      stage.pricingHistory.map((entry) => ({
+        action: entry.action,
+        value: entry.value,
+        actorId: entry.actor?.id ?? '',
+        createdAt: entry.createdAt,
+        reason: entry.reason,
+      })),
+    );
+
     // A raw file_ref is useless to a client. Hand back short-lived signed URLs
     // instead, so evidence renders in an <img> without exposing the object key.
     return {
       ...stage,
+      proposedPrice: currentProposal,
       photos: stage.photos.map(({ fileRef, ...photo }) => ({
         ...photo,
         url: this.storage.signedUrl(fileRef, PHOTO_URL_TTL_SECONDS),

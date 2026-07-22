@@ -84,7 +84,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: IndexedStack(index: _tab, children: tabs),
+      // Only the selected tab is built, rather than an IndexedStack keeping all
+      // of them alive. IndexedStack would preserve scroll position, but it also
+      // means each tab fetches once at sign-in and then never again: a worker who
+      // accepted a price and switched to Earnings would see the total from before
+      // they accepted, with no hint it was stale. Rebuilding on selection costs a
+      // fetch and gets the number right — which matters more on a money screen.
+      body: tabs[_tab],
       bottomNavigationBar: NavigationBar(
         selectedIndex: _tab,
         onDestinationSelected: (index) => setState(() => _tab = index),
@@ -116,7 +122,12 @@ class _MyWorkState extends State<_MyWork> {
       context.read<Session>().api.myStages(includeCompleted: _includeCompleted);
 
   Future<void> _refresh() async {
-    setState(() => _future = _load());
+    // A block body, not an arrow: `() => _future = _load()` *returns* the
+    // assigned Future, and setState rejects a callback that returns one — it
+    // cannot tell that apart from someone doing the async work inside setState.
+    setState(() {
+      _future = _load();
+    });
     await _future;
   }
 
@@ -176,7 +187,9 @@ class _InspectionQueueState extends State<_InspectionQueue> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = context.read<Session>().api.awaitingInspection());
+    setState(() {
+      _future = context.read<Session>().api.awaitingInspection();
+    });
     await _future;
   }
 
@@ -284,7 +297,9 @@ class _MyEarningsState extends State<_MyEarnings> {
   }
 
   Future<void> _refresh() async {
-    setState(() => _future = context.read<Session>().api.myEarnings());
+    setState(() {
+      _future = context.read<Session>().api.myEarnings();
+    });
     await _future;
   }
 

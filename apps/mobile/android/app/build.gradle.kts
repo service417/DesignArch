@@ -15,14 +15,27 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "lk.designarc.designarc_mobile"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        // The dependency tree contains native code — image_picker pulls
+        // path_provider, which pulls path_provider_android and in turn `jni`,
+        // whose C++ is compiled per ABI by CMake.
+        //
+        // 32-bit x86 is excluded because it does not build: CMake 3.22.1 fails
+        // its compiler ABI probe against NDK r28 for that target. It is also
+        // pointless — no shipping Android device is 32-bit x86; it exists only
+        // as a legacy emulator image. arm64-v8a covers real phones and x86_64
+        // covers the development emulator.
+        //
+        // armeabi-v7a is likewise omitted: DesignArc targets current handsets,
+        // and each extra ABI is another full native compile on every build.
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
     }
 
     buildTypes {

@@ -23,17 +23,24 @@ class ApiException implements Exception {
 
 /// The DesignArc API client.
 ///
-/// Base URL defaults to the Android emulator's alias for the host machine:
-/// 10.0.2.2 is the emulated router's route back to the developer's localhost,
-/// where 127.0.0.1 would resolve to the emulated device itself. Override for a
-/// physical device or a real deployment with:
-///   flutter run --dart-define=API_BASE_URL=http://192.168.1.5:3000
+/// In development the API is reached over an adb reverse tunnel:
+///
+///   adb reverse tcp:3000 tcp:3000
+///
+/// which maps the device's own localhost:3000 onto the host machine's port 3000.
+/// That is preferred over the emulator's 10.0.2.2 host alias for two reasons: it
+/// works identically on a physical phone plugged in over USB, and 10.0.2.2 is
+/// served by the emulator's slirp stack on the radio interface — recent system
+/// images (API 36) route through wlan0, where that alias is simply unreachable.
+///
+/// Point at a real deployment with:
+///   flutter run --dart-define=API_BASE_URL=https://api.designarc.lk
 class ApiClient {
   ApiClient({http.Client? httpClient}) : _http = httpClient ?? http.Client();
 
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:3000',
+    defaultValue: 'http://localhost:3000',
   );
 
   static const _storage = FlutterSecureStorage();
