@@ -23,6 +23,19 @@ export class StageSpecDto {
   @IsOptional()
   @IsUUID('7', { message: 'assigneeId must be a user id' })
   assigneeId?: string;
+
+  /**
+   * Several workers on the same stage type, working in parallel.
+   *
+   * Each entry becomes its own assignment with its own status, inspection,
+   * price and earning. Use this instead of `assigneeId` when a job needs more
+   * than one pair of hands. Supplying both is rejected rather than guessed at.
+   */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @IsUUID('7', { each: true, message: 'assigneeIds must all be user ids' })
+  assigneeIds?: string[];
 }
 
 export class CreateJobCardDto {

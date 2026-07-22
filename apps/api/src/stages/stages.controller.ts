@@ -14,6 +14,8 @@ import { IdempotencyInterceptor } from '../common/idempotency.interceptor';
 import { Roles } from '../auth/roles.decorator';
 import { AuthenticatedRequest } from '../auth/authenticated-request';
 import {
+  ConfirmScopeChangeDto,
+  DeclineAssignmentDto,
   DeclinePriceDto,
   RejectStageDto,
   SetPriceDto,
@@ -66,6 +68,56 @@ export class StagesController {
   @Roles('ADMIN', 'CARPENTER', 'PAINTER', 'SUPERVISOR')
   findOne(@Param('id') id: string) {
     return this.stages.findOne(id);
+  }
+
+  /**
+   * Take the job on. Work cannot start until this happens — a job nobody has
+   * agreed to is offered, not in progress.
+   */
+  @Post(':id/assignment/accept')
+  @Roles('CARPENTER', 'PAINTER')
+  acceptAssignment(
+    @Param('id') id: string,
+    @Body() dto: VersionedActionDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.stages.transition(id, actorOf(req), 'ACCEPT_ASSIGNMENT', dto, ip);
+  }
+
+  /**
+   * Hand the job back. The assignee is cleared so it returns to the Admin's
+   * reassignment queue; every other worker's assignment on the same job card
+   * carries on untouched.
+   */
+  @Post(':id/assignment/decline')
+  @Roles('CARPENTER', 'PAINTER')
+  declineAssignment(
+    @Param('id') id: string,
+    @Body() dto: DeclineAssignmentDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.stages.transition(id, actorOf(req), 'DECLINE_ASSIGNMENT', dto, ip);
+  }
+
+  /**
+   * A Supervisor's on-site confirmation that the work genuinely changed scope,
+   * recorded between a declined price and the Admin's revision.
+   *
+   * It deliberately does not move the stage on or name a figure: the Supervisor
+   * attests to what happened, the Admin still sets the number, and the worker
+   * still has to accept it.
+   */
+  @Post(':id/scope-change')
+  @Roles('SUPERVISOR')
+  confirmScopeChange(
+    @Param('id') id: string,
+    @Body() dto: ConfirmScopeChangeDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.stages.transition(id, actorOf(req), 'CONFIRM_SCOPE_CHANGE', dto, ip);
   }
 
   @Post(':id/start')

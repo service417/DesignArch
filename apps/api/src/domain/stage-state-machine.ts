@@ -48,6 +48,29 @@ interface TransitionRule {
  * invent, approve and be paid for work alone.
  */
 const TRANSITIONS: Readonly<Record<StageAction, TransitionRule>> = {
+  // --- taking the job on (the assigned worker) -----------------------------
+  /**
+   * Accepting and declining leave the status at ASSIGNED. A worker deciding
+   * whether to take a job is not a stage of the work, so it does not need one of
+   * the nine states — acceptance is recorded as a timestamp, and a decline
+   * clears the assignee so the row returns to the Admin's reassignment queue.
+   *
+   * Crucially, a decline affects only this assignment. Other workers on the same
+   * job card carry on untouched, which is the whole point of parallel assignment.
+   */
+  ACCEPT_ASSIGNMENT: {
+    from: ['ASSIGNED'],
+    to: 'ASSIGNED',
+    allowedRoles: ['CARPENTER', 'PAINTER'],
+    requiresAssignee: true,
+  },
+  DECLINE_ASSIGNMENT: {
+    from: ['ASSIGNED'],
+    to: 'ASSIGNED',
+    allowedRoles: ['CARPENTER', 'PAINTER'],
+    requiresAssignee: true,
+  },
+
   // --- execution (the assigned worker) -------------------------------------
   START_WORK: {
     from: ['ASSIGNED'],
@@ -106,6 +129,23 @@ const TRANSITIONS: Readonly<Record<StageAction, TransitionRule>> = {
   },
 
   /**
+   * A Supervisor's on-site confirmation that the work genuinely changed scope,
+   * recorded between a decline and the Admin's revised price.
+   *
+   * It leaves the status at PRICE_DECLINED on purpose. The supervisor attests to
+   * facts — the client moved the goalposts, the extra work is real — and does not
+   * move the stage forward or name a figure. The Admin still sets the number and
+   * the worker still has to accept it, so the three-way separation of duties
+   * survives a scope change intact: a supervisor cannot price work, and a worker
+   * cannot get a rise without an Admin agreeing to it.
+   */
+  CONFIRM_SCOPE_CHANGE: {
+    from: ['PRICE_DECLINED'],
+    to: 'PRICE_DECLINED',
+    allowedRoles: ['SUPERVISOR'],
+  },
+
+  /**
    * Completion is a system move, not a user one: accepting a price completes the
    * stage and creates the earning in the same transaction. It is modelled as a
    * distinct transition so the ledger records acceptance and completion as the
@@ -120,6 +160,20 @@ const TRANSITIONS: Readonly<Record<StageAction, TransitionRule>> = {
 
 /** Actions that put a price on the table and therefore need a valid amount. */
 const AMOUNT_REQUIRED: readonly StageAction[] = ['PROPOSE_PRICE', 'REVISE_PRICE'];
+
+/**
+ * Actions a worker cannot take until they have accepted the assignment.
+ *
+ * Only the worker's own moves are gated. Inspection and pricing are not, because
+ * by the time a stage reaches them the work has been done — refusing to let a
+ * supervisor inspect finished work over a missing acknowledgement would punish
+ * the wrong person.
+ */
+const ASSIGNMENT_MUST_BE_ACCEPTED: readonly StageAction[] = [
+  'START_WORK',
+  'MARK_READY',
+  'RESUME_REWORK',
+];
 
 /**
  * Decide whether a stage transition is permitted.
@@ -188,15 +242,47 @@ export function evaluateTransition(request: TransitionRequest): TransitionResult
     }
   }
 
-  // 4. The sequence gate: painting cannot begin until carpentry is approved
+  // 4. The assignment must have been taken on before any work happens.
+  //    A job nobody has agreed to is offered, not in progress — and a worker who
+  //    declined must not be able to carry on with it.
+  if (ASSIGNMENT_MUST_BE_ACCEPTED.includes(action) && stage.assignmentAccepted === false) {
+    return fail(
+      'ASSIGNMENT_NOT_ACCEPTED',
+      'Accept this job before starting work on it.',
+    );
+  }
+
+  if (action === 'ACCEPT_ASSIGNMENT' && stage.assignmentAccepted === true) {
+    return fail('ASSIGNMENT_ALREADY_SETTLED', 'You have already accepted this job.');
+  }
+
+  // 5. The sequence gate: painting cannot begin until carpentry is approved
   //    on the same job card (BR-3.2). Checked when the painting stage first
   //    leaves ASSIGNED, which is the moment work would actually start.
+  //
+  //    With parallel assignment a card can carry several carpentry assignments,
+  //    so the caller passes the *least advanced* of them: painting waits for all
+  //    the carpentry to pass inspection, not merely the first piece of it.
   if (stage.type === 'PAINTING' && action === 'START_WORK') {
     const gate = evaluateSequenceGate(siblingCarpentryStatus);
     if (!gate.ok) return gate;
   }
 
-  // 5. Evidence and payload rules.
+  // 6. Evidence and payload rules.
+  if (action === 'CONFIRM_SCOPE_CHANGE' && !hasText(payload?.reason)) {
+    return fail(
+      'REASON_REQUIRED',
+      'A scope confirmation must say what changed — it is the evidence behind a revised price.',
+    );
+  }
+
+  if (action === 'DECLINE_ASSIGNMENT' && !hasText(payload?.reason)) {
+    return fail(
+      'REASON_REQUIRED',
+      'Say why you are turning this job down, so it can be reassigned sensibly.',
+    );
+  }
+
   if (action === 'APPROVE' && stage.photoCount < 1) {
     return fail(
       'PHOTO_REQUIRED',

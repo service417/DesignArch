@@ -11,6 +11,31 @@ import {
 } from './dto/job-card.dto';
 
 /**
+ * Turn one stage spec into one entry per named worker.
+ *
+ * `assigneeIds` is the parallel form; `assigneeId` remains for the single-worker
+ * case. Supplying both is rejected rather than merged, because the intent is
+ * ambiguous and guessing at it on the money path is not worth the convenience.
+ * With neither, a single unstaffed assignment is created — a planned job card
+ * that has not been resourced yet.
+ */
+function expandAssignees(spec: StageSpecDto): StageSpecDto[] {
+  const many = spec.assigneeIds ?? [];
+
+  if (spec.assigneeId && many.length > 0) {
+    throw new ConflictException(
+      'Give either assigneeId or assigneeIds for a stage, not both.',
+    );
+  }
+
+  if (many.length > 0) {
+    return many.map((assigneeId) => ({ type: spec.type, assigneeId }));
+  }
+
+  return [{ type: spec.type, assigneeId: spec.assigneeId }];
+}
+
+/**
  * Carpentry is always sequence 1 and painting always sequence 2. The sequence
  * gate (BR-3.2) depends on this ordering, and a CHECK constraint enforces the
  * same pairing in the database — this map is where the API side of it lives, so
@@ -58,11 +83,14 @@ export class JobCardsService {
       );
     }
 
-    const specs = dto.stages ?? [];
-    this.rejectDuplicateTypes(specs);
-    // Validate every assignee before writing anything, so a bad second stage
+    // Each spec expands into one assignment per named worker, so a stage type
+    // worked by three carpenters becomes three independent rows.
+    const assignments = (dto.stages ?? []).flatMap((spec) => expandAssignees(spec));
+
+    // Validate every assignee before writing anything, so a bad third assignment
     // cannot leave a half-built job card behind.
-    await Promise.all(specs.map((spec) => this.requireAssignable(spec)));
+    await Promise.all(assignments.map((spec) => this.requireAssignable(spec)));
+    this.rejectDuplicateWorkerOnSameType(assignments);
 
     const jobCard = await this.prisma.$transaction(async (tx) => {
       const created = await tx.jobCard.create({
@@ -71,7 +99,7 @@ export class JobCardsService {
           title: dto.title.trim(),
           description: dto.description?.trim() || null,
           stages: {
-            create: specs.map((spec) => ({
+            create: assignments.map((spec) => ({
               type: spec.type,
               sequenceNo: SEQUENCE_BY_TYPE[spec.type],
               assigneeId: spec.assigneeId ?? null,
@@ -86,7 +114,12 @@ export class JobCardsService {
         action: 'JOB_CARD_CREATED',
         entity: 'job_card',
         entityId: created.id,
-        meta: { projectId, title: created.title, stages: specs.length },
+        meta: {
+          projectId,
+          title: created.title,
+          assignments: assignments.length,
+          workers: assignments.filter((spec) => spec.assigneeId).length,
+        },
         ip,
       });
 
@@ -168,14 +201,19 @@ export class JobCardsService {
     await this.requireJobCard(jobCardId);
     await this.requireAssignable(spec);
 
-    const existing = await this.prisma.stage.findFirst({
-      where: { jobCardId, type: spec.type },
-      select: { id: true },
-    });
-    if (existing) {
-      throw new ConflictException(
-        `This job card already has a ${spec.type.toLowerCase()} stage.`,
-      );
+    // A second carpenter on the same card is now the expected case, not a
+    // conflict. What is still wrong is giving the *same* worker the same stage
+    // type twice — they would end up with two assignments to accept separately.
+    if (spec.assigneeId) {
+      const duplicate = await this.prisma.stage.findFirst({
+        where: { jobCardId, type: spec.type, assigneeId: spec.assigneeId },
+        select: { id: true },
+      });
+      if (duplicate) {
+        throw new ConflictException(
+          `That worker already has the ${spec.type.toLowerCase()} work on this job card.`,
+        );
+      }
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -257,12 +295,25 @@ export class JobCardsService {
     });
   }
 
-  private rejectDuplicateTypes(specs: StageSpecDto[]): void {
-    const types = specs.map((s) => s.type);
-    if (new Set(types).size !== types.length) {
-      throw new ConflictException(
-        'A job card may have at most one carpentry stage and one painting stage.',
-      );
+  /**
+   * The same worker must not be given the same stage type twice on one card.
+   *
+   * Several *different* workers on one stage type is the whole point of parallel
+   * assignment, so the old "one stage of each type" rule is gone. This is what
+   * replaces it: duplicating a person is a mistake in the request, and would
+   * otherwise create two assignments they would have to accept separately.
+   */
+  private rejectDuplicateWorkerOnSameType(specs: StageSpecDto[]): void {
+    const seen = new Set<string>();
+    for (const spec of specs) {
+      if (!spec.assigneeId) continue;
+      const key = `${spec.type}:${spec.assigneeId}`;
+      if (seen.has(key)) {
+        throw new ConflictException(
+          `The same worker is listed twice for the ${spec.type.toLowerCase()} work on this job card.`,
+        );
+      }
+      seen.add(key);
     }
   }
 

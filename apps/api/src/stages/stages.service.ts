@@ -28,6 +28,26 @@ import {
 const PHOTO_URL_TTL_SECONDS = 900;
 
 /**
+ * How far through the lifecycle each status sits.
+ *
+ * Needed because the statuses are compared for progress, and their alphabetical
+ * order is not their lifecycle order — 'APPROVED' < 'IN_PROGRESS' as strings,
+ * which is exactly backwards. REJECTED sits alongside IN_PROGRESS: the work is
+ * back with the worker, not finished.
+ */
+const LIFECYCLE_ORDER: Record<StageStatus, number> = {
+  ASSIGNED: 0,
+  IN_PROGRESS: 1,
+  REJECTED: 1,
+  READY_FOR_INSPECTION: 2,
+  APPROVED: 3,
+  PRICE_PROPOSED: 4,
+  PRICE_DECLINED: 4,
+  PRICE_ACCEPTED: 5,
+  COMPLETED: 6,
+};
+
+/**
  * What a stage looks like in a list.
  *
  * Carries the current proposed price, because the worker's whole decision on
@@ -76,6 +96,10 @@ const LEDGER_ACTION: Partial<Record<StageAction, PricingAction>> = {
   REVISE_PRICE: 'REVISED',
   ACCEPT_PRICE: 'ACCEPTED',
   DECLINE_PRICE: 'DECLINED',
+  // A scope confirmation belongs in the ledger, not the audit log alone: it is
+  // the recorded justification a revised price rests on, and the ledger is the
+  // append-only record anyone later reconstructs the negotiation from.
+  CONFIRM_SCOPE_CHANGE: 'SCOPE_CONFIRMED',
 };
 
 /**
@@ -129,17 +153,19 @@ export class StagesService {
         assigneeId: stage.assigneeId,
         version: stage.version,
         photoCount: stage._count.photos,
+        assignmentAccepted: stage.assignmentAcceptedAt !== null,
       };
 
-      // The painting sequence gate needs the sibling carpentry stage.
+      // The painting sequence gate needs the carpentry work on the same card.
+      //
+      // A card can now carry several carpentry assignments at once, so the gate
+      // is evaluated against the *least advanced* of them: painting waits for all
+      // the carpentry to pass inspection, not merely whichever piece finished
+      // first. Taking findFirst here would have let painting start while a second
+      // carpenter was still cutting.
       const siblingCarpentryStatus =
         stage.type === 'PAINTING'
-          ? ((
-              await tx.stage.findFirst({
-                where: { jobCardId: stage.jobCardId, type: 'CARPENTRY' },
-                select: { status: true },
-              })
-            )?.status ?? null)
+          ? await this.leastAdvancedCarpentryStatus(tx, stage.jobCardId)
           : undefined;
 
       const decision = evaluateTransition({
@@ -185,6 +211,21 @@ export class StagesService {
           ...(action === 'REJECT' ? { rejectionReason: payload.reason!.trim() } : {}),
           // Clear a stale reason once the stage is back in progress.
           ...(action === 'RESUME_REWORK' ? { rejectionReason: null } : {}),
+
+          ...(action === 'ACCEPT_ASSIGNMENT' ? { assignmentAcceptedAt: new Date() } : {}),
+
+          // Declining hands the job back: the assignee is cleared in the same
+          // statement, so the row lands in the Admin's reassignment queue and the
+          // worker who refused is no longer named on it. Every other assignment
+          // on this job card is untouched.
+          ...(action === 'DECLINE_ASSIGNMENT'
+            ? {
+                assigneeId: null,
+                assignmentAcceptedAt: null,
+                assignmentDeclinedAt: new Date(),
+                assignmentDeclineReason: payload.reason!.trim(),
+              }
+            : {}),
         },
       });
 
@@ -437,6 +478,36 @@ export class StagesService {
   }
 
   /**
+   * The status of the *least advanced* carpentry assignment on a job card.
+   *
+   * With parallel assignment a card can carry several carpenters at once, so the
+   * painting gate has to wait for the slowest of them. Ordering by the lifecycle
+   * position rather than by the enum's alphabet, because 'APPROVED' sorts before
+   * 'IN_PROGRESS' alphabetically and that would let painting start while
+   * carpentry was still underway.
+   *
+   * Returns null when the card has no carpentry at all, which the gate treats as
+   * nothing to wait for.
+   */
+  private async leastAdvancedCarpentryStatus(
+    tx: Prisma.TransactionClient,
+    jobCardId: string,
+  ): Promise<StageStatus | null> {
+    const carpentry = await tx.stage.findMany({
+      where: { jobCardId, type: 'CARPENTRY' },
+      select: { status: true },
+    });
+
+    if (carpentry.length === 0) return null;
+
+    return carpentry
+      .map((stage) => stage.status)
+      .reduce((slowest, status) =>
+        LIFECYCLE_ORDER[status] < LIFECYCLE_ORDER[slowest] ? status : slowest,
+      );
+  }
+
+  /**
    * The amount currently on the table for this stage — the most recent proposal
    * or revision that has not yet been disposed of.
    */
@@ -505,6 +576,10 @@ export class StagesService {
       case 'STAGE_NOT_APPROVED':
       case 'SEQUENCE_GATE_LOCKED':
       case 'ILLEGAL_TRANSITION':
+      // These describe the state the assignment is in, not a malformed request,
+      // so they belong with the other conflicts rather than as a 400.
+      case 'ASSIGNMENT_NOT_ACCEPTED':
+      case 'ASSIGNMENT_ALREADY_SETTLED':
         return new ConflictException({ code, message });
       case 'INVALID_AMOUNT':
       case 'PHOTO_REQUIRED':

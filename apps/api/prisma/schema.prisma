@@ -67,6 +67,12 @@ enum PricingAction {
   REVISED
   ACCEPTED
   DECLINED
+  /// A Supervisor's on-site confirmation that the work genuinely changed scope,
+  /// recorded between a decline and the Admin's revised price. It carries no
+  /// amount: the Supervisor attests to the facts, the Admin still sets the
+  /// number and the worker still has to accept it, so the three-way separation
+  /// of duties is preserved.
+  SCOPE_CONFIRMED
 }
 
 enum EarningStatus {
@@ -186,6 +192,10 @@ model Attachment {
   id           String         @id @default(dbgenerated("uuidv7()")) @db.Uuid
   jobCardId    String         @map("job_card_id") @db.Uuid
   fileRef      String         @map("file_ref") @db.VarChar(500)
+  /// The name the file was uploaded under, for display in the file carousel.
+  /// Kept separate from `fileRef`, which is a UUID key we mint — a client-supplied
+  /// name must never reach the filesystem.
+  filename     String?        @db.VarChar(160)
   kind         AttachmentKind @default(DESIGN)
   uploadedById String         @map("uploaded_by") @db.Uuid
   createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
@@ -197,7 +207,15 @@ model Attachment {
   @@map("attachment")
 }
 
-/// The heart of the workflow. One stage = one worker's unit of work on a job card.
+/// One worker's assignment on a job card — the unit that is worked, inspected,
+/// priced and paid. This *is* the job-assignment record: it carries job_card_id,
+/// worker (assignee_id), stage_type (type), status and price, plus its own
+/// evidence, pricing history and earning.
+///
+/// Several workers can hold the same stage type on one job card at the same
+/// time, each progressing independently. That is why there is no uniqueness on
+/// (job_card_id, type) — an earlier revision had one, which is exactly what
+/// prevented parallel assignment.
 model Stage {
   id          String      @id @default(dbgenerated("uuidv7()")) @db.Uuid
   jobCardId   String      @map("job_card_id") @db.Uuid
@@ -206,6 +224,15 @@ model Stage {
   sequenceNo  Int         @map("sequence_no")
   assigneeId  String?     @map("assignee_id") @db.Uuid
   status      StageStatus @default(ASSIGNED)
+
+  /// Set when the worker accepts the assignment itself. Work cannot start before
+  /// this: a job nobody has agreed to take is not in progress, it is offered.
+  assignmentAcceptedAt DateTime? @map("assignment_accepted_at") @db.Timestamptz(6)
+  /// Set when a worker declines the assignment. The assignee is cleared at the
+  /// same time, so the row returns to the Admin's reassignment queue while every
+  /// other worker's assignment on the card is untouched.
+  assignmentDeclinedAt DateTime? @map("assignment_declined_at") @db.Timestamptz(6)
+  assignmentDeclineReason String? @map("assignment_decline_reason") @db.VarChar(500)
   /// Set only once the worker accepts a price (BR-6.4). Integer minor units (LKR cents),
   /// never a float — money is never stored as a binary fraction.
   acceptedPrice BigInt?   @map("accepted_price")
@@ -225,7 +252,6 @@ model Stage {
   photos         InspectionPhoto[]
   earning        Earning?
 
-  @@unique([jobCardId, type])
   @@index([status])
   @@index([assigneeId, status])
   @@index([jobCardId, sequenceNo])

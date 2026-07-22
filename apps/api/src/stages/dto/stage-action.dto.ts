@@ -56,3 +56,21 @@ export class DeclinePriceDto extends VersionedActionDto {
   @Length(5, 500)
   reason?: string;
 }
+
+export class DeclineAssignmentDto extends VersionedActionDto {
+  /** Required: the Admin has to reassign this job, and needs to know why. */
+  @IsString()
+  @Length(5, 500)
+  reason!: string;
+}
+
+export class ConfirmScopeChangeDto extends VersionedActionDto {
+  /**
+   * What actually changed on site. The minimum length deliberately matches the
+   * database CHECK — otherwise a three-character reason would pass validation
+   * here and then blow up as a 500 at the constraint.
+   */
+  @IsString()
+  @Length(5, 500)
+  reason!: string;
+}

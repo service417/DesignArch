@@ -98,10 +98,14 @@ export class AttachmentsService {
           data: {
             jobCardId,
             fileRef: stored.key,
+            // Persisted for the file carousel. Previously this lived only in the
+            // audit meta, so the list endpoint had no name to show. The stored
+            // key stays a UUID we mint; this never reaches the filesystem.
+            filename: safeFilename(file.originalname),
             kind: 'DESIGN',
             uploadedById: uploaderId,
           },
-          select: { id: true, createdAt: true, kind: true },
+          select: { id: true, createdAt: true, kind: true, filename: true },
         });
 
         await this.audit.recordIn(tx, {
@@ -156,18 +160,26 @@ export class AttachmentsService {
       select: {
         id: true,
         fileRef: true,
+        filename: true,
         kind: true,
         createdAt: true,
         uploadedBy: { select: { id: true, name: true } },
       },
     });
 
-    return attachments.map(({ fileRef, ...attachment }) => ({
-      ...attachment,
-      // Derived from the key we minted, so it is always accurate.
-      extension: extname(fileRef).toLowerCase(),
-      url: this.storage.signedUrl(fileRef, this.urlTtlSeconds),
-    }));
+    return attachments.map(({ fileRef, filename, ...attachment }) => {
+      const extension = extname(fileRef).toLowerCase();
+      return {
+        ...attachment,
+        // Derived from the key we minted, so it is always accurate.
+        extension,
+        isPdf: extension === '.pdf',
+        // Rows written before filenames were stored have none; fall back to
+        // something a person can read rather than showing an empty label.
+        filename: filename ?? `design${extension}`,
+        url: this.storage.signedUrl(fileRef, this.urlTtlSeconds),
+      };
+    });
   }
 
   /**

@@ -1,7 +1,9 @@
-import { Controller, Get, Header, Query } from '@nestjs/common';
+import { Controller, Get, Header, Query, Req } from '@nestjs/common';
 import { IsDateString, IsOptional } from 'class-validator';
 import { ReportingService } from './reporting.service';
+import { DashboardService } from './dashboard.service';
 import { Roles } from '../auth/roles.decorator';
+import { AuthenticatedRequest } from '../auth/authenticated-request';
 
 class DateRangeDto {
   @IsOptional()
@@ -11,6 +13,55 @@ class DateRangeDto {
   @IsOptional()
   @IsDateString({}, { message: 'to must be an ISO date, e.g. 2026-07-31' })
   to?: string;
+}
+
+/**
+ * Role-specific home screens (FR-9.1).
+ *
+ * Each role reads its own dashboard and no other. A worker's home is scoped from
+ * their token, so there is no parameter through which one worker could read
+ * another's workload or earnings.
+ */
+@Controller('dashboard')
+export class DashboardController {
+  constructor(private readonly dashboard: DashboardService) {}
+
+  @Get('admin')
+  @Roles('ADMIN')
+  admin() {
+    return this.dashboard.admin();
+  }
+
+  @Get('supervisor')
+  @Roles('SUPERVISOR')
+  supervisor(@Req() req: AuthenticatedRequest) {
+    return this.dashboard.supervisor(req.user!.id);
+  }
+
+  @Get('worker')
+  @Roles('CARPENTER', 'PAINTER')
+  worker(@Req() req: AuthenticatedRequest) {
+    return this.dashboard.worker(req.user!.id);
+  }
+
+  /**
+   * A worker's own month. `month` is an optional YYYY-MM; omitted means the
+   * current one.
+   *
+   * An Admin may read any worker's month for the payment run; a worker only ever
+   * sees their own. That is enforced here from the token rather than trusted to
+   * the query parameter, which anyone could edit.
+   */
+  @Get('worker/monthly')
+  @Roles('CARPENTER', 'PAINTER', 'ADMIN')
+  workerMonthly(
+    @Req() req: AuthenticatedRequest,
+    @Query('month') month?: string,
+    @Query('workerId') workerId?: string,
+  ) {
+    const target = req.user!.role === 'ADMIN' && workerId ? workerId : req.user!.id;
+    return this.dashboard.workerMonthlyReport(target, month);
+  }
 }
 
 /**
@@ -71,6 +122,56 @@ export class ReportingController {
   @Roles('ADMIN')
   reconciliation() {
     return this.reporting.reconcileLedger();
+  }
+}
+
+/**
+ * A worker's monthly statement as a downloadable file.
+ *
+ * CSV rather than PDF. Server-side PDF rendering needs a headless Chromium in a
+ * worker process, which is a heavy dependency to add for one document; this
+ * carries exactly the same figures and opens in any spreadsheet. The route is
+ * shaped so a PDF renderer can be swapped in behind it later without the client
+ * changing.
+ */
+@Controller('dashboard')
+export class WorkerStatementController {
+  constructor(private readonly dashboard: DashboardService) {}
+
+  @Get('worker/monthly.csv')
+  @Roles('CARPENTER', 'PAINTER', 'ADMIN')
+  @Header('Content-Type', 'text/csv; charset=utf-8')
+  @Header('Content-Disposition', 'attachment; filename="designarc-monthly-statement.csv"')
+  async monthlyCsv(
+    @Req() req: AuthenticatedRequest,
+    @Query('month') month?: string,
+    @Query('workerId') workerId?: string,
+  ): Promise<string> {
+    const target = req.user!.role === 'ADMIN' && workerId ? workerId : req.user!.id;
+    const report = await this.dashboard.workerMonthlyReport(target, month);
+
+    const rows = report.jobs.map((earning) => [
+      earning.createdAt.toISOString().slice(0, 10),
+      earning.stage.jobCard.project.name,
+      earning.stage.jobCard.project.client,
+      earning.stage.jobCard.title,
+      earning.stage.type,
+      toDecimal(earning.amount),
+      earning.status,
+      earning.paidAt ? earning.paidAt.toISOString().slice(0, 10) : '',
+    ]);
+
+    // A summary line after a blank row, so the totals a worker actually cares
+    // about are visible without adding them up by hand.
+    rows.push([]);
+    rows.push(['', '', '', '', 'Earned', toDecimal(report.totals.earned), '', '']);
+    rows.push(['', '', '', '', 'Paid', toDecimal(report.totals.paid), '', '']);
+    rows.push(['', '', '', '', 'Outstanding', toDecimal(report.totals.outstanding), '', '']);
+
+    return toCsv(
+      ['Date', 'Project', 'Client', 'Job card', 'Stage', 'Amount (LKR)', 'Status', 'Paid on'],
+      rows,
+    );
   }
 }
 

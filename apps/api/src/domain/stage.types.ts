@@ -28,10 +28,18 @@ export type StageStatus =
  * PricingAction enum in schema.prisma, restated here so the domain layer stays
  * independent of the generated Prisma client.
  */
-export type PricingAction = 'PROPOSED' | 'REVISED' | 'ACCEPTED' | 'DECLINED';
+export type PricingAction =
+  | 'PROPOSED'
+  | 'REVISED'
+  | 'ACCEPTED'
+  | 'DECLINED'
+  /** A Supervisor's on-site confirmation that the work genuinely changed scope. */
+  | 'SCOPE_CONFIRMED';
 
 /** Every way a stage is allowed to move. Anything not listed cannot happen. */
 export type StageAction =
+  | 'ACCEPT_ASSIGNMENT'
+  | 'DECLINE_ASSIGNMENT'
   | 'START_WORK'
   | 'MARK_READY'
   | 'APPROVE'
@@ -41,6 +49,7 @@ export type StageAction =
   | 'REVISE_PRICE'
   | 'ACCEPT_PRICE'
   | 'DECLINE_PRICE'
+  | 'CONFIRM_SCOPE_CHANGE'
   | 'COMPLETE';
 
 /**
@@ -57,9 +66,11 @@ export type StageErrorCode =
   | 'REASON_REQUIRED'
   | 'INVALID_AMOUNT'
   | 'VERSION_CONFLICT'
-  | 'STAGE_NOT_APPROVED';
+  | 'STAGE_NOT_APPROVED'
+  | 'ASSIGNMENT_NOT_ACCEPTED'
+  | 'ASSIGNMENT_ALREADY_SETTLED';
 
-/** The stage as the state machine needs to see it. */
+/** One worker's assignment, as the state machine needs to see it. */
 export interface StageSnapshot {
   id: string;
   type: StageType;
@@ -68,6 +79,11 @@ export interface StageSnapshot {
   version: number;
   /** Count of inspection photos already stored against this stage. */
   photoCount: number;
+  /**
+   * Whether the worker has taken the job on. Work cannot start before this: a
+   * job nobody has agreed to is offered, not in progress.
+   */
+  assignmentAccepted?: boolean;
 }
 
 export interface Actor {
