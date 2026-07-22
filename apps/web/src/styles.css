@@ -110,9 +110,88 @@ a { color: inherit; }
 .card > :not(.card-head) { padding: 0; }
 .card-body { padding: 16px; }
 
-.grid { display: grid; gap: 16px; }
+.grid { display: grid; gap: 16px; margin-bottom: 16px; }
+.grid-4 { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
 .grid-3 { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
-.grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+.grid-2 { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+/* Cards carry their own bottom margin for stacking; inside a grid the gap does
+   that job, and the extra margin would break the row alignment. */
+.grid > .card { margin: 0; }
+
+.value.urgent { color: var(--accent); }
+.overdue { color: var(--danger); }
+.scope-confirmed { color: var(--ok); font-weight: 600; font-size: 13px; }
+
+/* ------------------------------------------------------- design files */
+
+.carousel { display: flex; gap: 12px; overflow-x: auto; padding: 16px; }
+.carousel-item { margin: 0; width: 130px; flex: none; position: relative; }
+.carousel-item img,
+.carousel-item .file-tile {
+  width: 130px;
+  height: 130px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  object-fit: cover;
+  display: grid;
+  place-items: center;
+  background: var(--bg);
+}
+.carousel-item .file-tile.pdf { background: var(--accent-soft); }
+.file-ext { font-weight: 700; color: var(--accent); letter-spacing: 0.06em; }
+.carousel-item figcaption {
+  font-size: 12px;
+  color: var(--ink-soft);
+  margin-top: 6px;
+  /* Filenames are long and the tile is not; truncate rather than reflow the row. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.file-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  line-height: 1;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+  padding: 40px;
+  cursor: zoom-out;
+}
+.lightbox img { max-width: 90vw; max-height: 80vh; border-radius: 8px; }
+.lightbox p { color: #fff; margin-top: 12px; font-size: 13px; }
+
+/* ------------------------------------------------- multi-worker picker */
+
+.picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.picker-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--ink);
+  font-size: 13px;
+  background: var(--surface);
+}
+.picker-item.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.picker-item input { width: auto; margin: 0; }
 
 .stat { padding: 16px; }
 .stat .label { color: var(--ink-soft); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
@@ -221,6 +300,9 @@ button.small { padding: 5px 10px; font-size: 13px; }
 .timeline .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--line); flex: none; }
 .timeline .dot.accepted { background: var(--ok); }
 .timeline .dot.declined { background: var(--danger); }
+/* A supervisor's confirmation sits between a decline and a revision — its own
+   colour, because it is neither of those things. */
+.timeline .dot.confirmed { background: var(--info); }
 .timeline .body { flex: 1; }
 .timeline .meta { font-size: 12px; color: var(--ink-soft); }
 

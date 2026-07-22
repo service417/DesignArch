@@ -113,7 +113,19 @@ export function ProjectDetailPage() {
                             className="clickable"
                             onClick={() => navigate(`/stages/${stage.id}`)}
                           >
-                            <td className="strong">{index === 0 ? card.title : ''}</td>
+                            <td className="strong">
+                              {/* Only the first row of a card is labelled: with
+                                  parallel working a card can have several rows,
+                                  and repeating the title reads as separate jobs. */}
+                              {index === 0 && (
+                                <Link
+                                  to={`/job-cards/${card.id}`}
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {card.title}
+                                </Link>
+                              )}
+                            </td>
                             <td>{stage.type === 'CARPENTRY' ? 'Carpentry' : 'Painting'}</td>
                             <td>
                               {stage.assignee?.name ?? (
@@ -164,8 +176,10 @@ function NewJobCardForm({
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [carpenterId, setCarpenterId] = useState('');
-  const [painterId, setPainterId] = useState('');
+  // Sets rather than single ids: a stage can be worked by several people at
+  // once, each becoming an independent assignment.
+  const [carpenterIds, setCarpenterIds] = useState<string[]>([]);
+  const [painterIds, setPainterIds] = useState<string[]>([]);
   const [withPainting, setWithPainting] = useState(true);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
@@ -175,11 +189,14 @@ function NewJobCardForm({
     setError(null);
     setBusy(true);
 
-    const stages: Array<{ type: 'CARPENTRY' | 'PAINTING'; assigneeId?: string }> = [
-      { type: 'CARPENTRY', ...(carpenterId ? { assigneeId: carpenterId } : {}) },
+    const stages: Array<{ type: 'CARPENTRY' | 'PAINTING'; assigneeIds?: string[] }> = [
+      { type: 'CARPENTRY', ...(carpenterIds.length ? { assigneeIds: carpenterIds } : {}) },
     ];
     if (withPainting) {
-      stages.push({ type: 'PAINTING', ...(painterId ? { assigneeId: painterId } : {}) });
+      stages.push({
+        type: 'PAINTING',
+        ...(painterIds.length ? { assigneeIds: painterIds } : {}),
+      });
     }
 
     try {
@@ -221,21 +238,12 @@ function NewJobCardForm({
             />
           </div>
 
-          <div className="field">
-            <label htmlFor="carpenter">Carpenter</label>
-            <select
-              id="carpenter"
-              value={carpenterId}
-              onChange={(e) => setCarpenterId(e.target.value)}
-            >
-              <option value="">Leave unassigned for now</option>
-              {carpenters.data?.map((worker) => (
-                <option key={worker.id} value={worker.id}>
-                  {worker.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <WorkerPicker
+            label="Carpenters"
+            workers={carpenters.data ?? []}
+            selected={carpenterIds}
+            onChange={setCarpenterIds}
+          />
 
           <div className="field">
             <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -250,24 +258,18 @@ function NewJobCardForm({
           </div>
 
           {withPainting && (
-            <div className="field">
-              <label htmlFor="painter">Painter</label>
-              <select
-                id="painter"
-                value={painterId}
-                onChange={(e) => setPainterId(e.target.value)}
-              >
-                <option value="">Leave unassigned for now</option>
-                {painters.data?.map((worker) => (
-                  <option key={worker.id} value={worker.id}>
-                    {worker.name}
-                  </option>
-                ))}
-              </select>
-              <p className="muted" style={{ margin: '6px 0 0', fontSize: 12 }}>
-                Painting cannot start until the carpentry stage has been approved.
+            <>
+              <WorkerPicker
+                label="Painters"
+                workers={painters.data ?? []}
+                selected={painterIds}
+                onChange={setPainterIds}
+              />
+              <p className="muted" style={{ margin: '-6px 0 12px', fontSize: 12 }}>
+                Painting cannot start until every carpentry assignment has passed
+                inspection.
               </p>
-            </div>
+            </>
           )}
 
           <button className="primary" type="submit" disabled={busy}>
@@ -276,5 +278,62 @@ function NewJobCardForm({
         </form>
       </div>
     </Card>
+  );
+}
+
+/**
+ * Pick any number of workers for one stage.
+ *
+ * Checkboxes rather than a multi-select: a multi-select needs ctrl-click to add a
+ * second name, which is exactly the interaction people miss — and the whole point
+ * of this control is that picking more than one is normal here.
+ */
+function WorkerPicker({
+  label,
+  workers,
+  selected,
+  onChange,
+}: {
+  label: string;
+  workers: User[];
+  selected: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  return (
+    <div className="field">
+      <label>
+        {label}
+        {selected.length > 0 && (
+          <span className="muted"> — {selected.length} selected, working in parallel</span>
+        )}
+      </label>
+      {workers.length === 0 ? (
+        <p className="muted" style={{ margin: 0, fontSize: 13 }}>
+          No active workers with this role.
+        </p>
+      ) : (
+        <div className="picker">
+          {workers.map((worker) => {
+            const checked = selected.includes(worker.id);
+            return (
+              <label key={worker.id} className={`picker-item${checked ? ' on' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() =>
+                    onChange(
+                      checked
+                        ? selected.filter((id) => id !== worker.id)
+                        : [...selected, worker.id],
+                    )
+                  }
+                />
+                {worker.name}
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

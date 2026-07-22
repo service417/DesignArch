@@ -79,6 +79,7 @@ class Stage {
     this.proposedPrice,
     this.rejectionReason,
     this.photoCount = 0,
+    this.assignmentAccepted = true,
   });
 
   final String id;
@@ -93,7 +94,13 @@ class Stage {
   final String? rejectionReason;
   final int photoCount;
 
+  /// Whether the worker has taken this job on. Work cannot start before it.
+  final bool assignmentAccepted;
+
   bool get isCarpentry => type == 'CARPENTRY';
+
+  /// An assignment still awaiting the worker's yes or no.
+  bool get awaitingMyDecision => status == 'ASSIGNED' && !assignmentAccepted;
 
   factory Stage.fromJson(Map<String, dynamic> json) => Stage(
         id: json['id'] as String,
@@ -108,7 +115,32 @@ class Stage {
         acceptedPrice: json['acceptedPrice'] as String?,
         proposedPrice: json['proposedPrice'] as String?,
         rejectionReason: json['rejectionReason'] as String?,
-        photoCount: (json['_count'] as Map<String, dynamic>?)?['photos'] as int? ?? 0,
+        photoCount: (json['_count'] as Map<String, dynamic>?)?['photos'] as int? ??
+            (json['photos'] as List<dynamic>?)?.length ??
+            0,
+        assignmentAccepted: json['assignmentAcceptedAt'] != null,
+      );
+}
+
+/// A design file attached to a job card — the brief the work is done from.
+class DesignFile {
+  DesignFile({
+    required this.id,
+    required this.filename,
+    required this.url,
+    required this.isPdf,
+  });
+
+  final String id;
+  final String filename;
+  final String url;
+  final bool isPdf;
+
+  factory DesignFile.fromJson(Map<String, dynamic> json) => DesignFile(
+        id: json['id'] as String,
+        filename: json['filename'] as String? ?? 'design file',
+        url: json['url'] as String,
+        isPdf: json['isPdf'] as bool? ?? false,
       );
 }
 
@@ -238,6 +270,116 @@ class EarningsSummary {
           .toList(),
       unpaidTotal: summary['unpaidTotal'] as String,
       paidTotal: summary['paidTotal'] as String,
+    );
+  }
+}
+
+/// The supervisor's home counts.
+class SupervisorSummary {
+  SupervisorSummary({required this.readyToInspect, required this.passedToday});
+  final int readyToInspect;
+  final int passedToday;
+
+  factory SupervisorSummary.fromJson(Map<String, dynamic> json) => SupervisorSummary(
+        readyToInspect: json['readyToInspect'] as int,
+        passedToday: json['passedToday'] as int,
+      );
+}
+
+/// The worker's home: what they are doing and what they have earned this month.
+class WorkerHome {
+  WorkerHome({
+    required this.activeJobs,
+    required this.earnedThisMonth,
+    required this.paidThisMonth,
+    required this.jobs,
+  });
+
+  final int activeJobs;
+  final String earnedThisMonth;
+  final String paidThisMonth;
+  final List<WorkerJob> jobs;
+
+  factory WorkerHome.fromJson(Map<String, dynamic> json) {
+    final month = json['thisMonth'] as Map<String, dynamic>;
+    return WorkerHome(
+      activeJobs: json['activeJobs'] as int,
+      earnedThisMonth: month['earned'] as String,
+      paidThisMonth: month['paid'] as String,
+      jobs: (json['jobs'] as List<dynamic>)
+          .map((j) => WorkerJob.fromJson(j as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+}
+
+class WorkerJob {
+  WorkerJob({
+    required this.id,
+    required this.type,
+    required this.status,
+    required this.title,
+    required this.projectName,
+    required this.percentComplete,
+    this.dueDate,
+  });
+
+  final String id;
+  final String type;
+  final String status;
+  final String title;
+  final String projectName;
+  final int percentComplete;
+  final String? dueDate;
+
+  factory WorkerJob.fromJson(Map<String, dynamic> json) {
+    final card = json['jobCard'] as Map<String, dynamic>;
+    final project = card['project'] as Map<String, dynamic>;
+    return WorkerJob(
+      id: json['id'] as String,
+      type: json['type'] as String,
+      status: json['status'] as String,
+      title: card['title'] as String,
+      projectName: project['name'] as String,
+      percentComplete: json['percentComplete'] as int? ?? 0,
+      dueDate: json['dueDate'] as String?,
+    );
+  }
+}
+
+/// A worker's month: earned, paid, outstanding, and each job's payment state.
+class MonthlyReport {
+  MonthlyReport({
+    required this.label,
+    required this.earned,
+    required this.paid,
+    required this.outstanding,
+    required this.jobsCompleted,
+    required this.paymentProgress,
+    required this.jobs,
+  });
+
+  final String label;
+  final String earned;
+  final String paid;
+  final String outstanding;
+  final int jobsCompleted;
+  final int paymentProgress;
+  final List<Earning> jobs;
+
+  factory MonthlyReport.fromJson(Map<String, dynamic> json) {
+    final totals = json['totals'] as Map<String, dynamic>;
+    final period = json['period'] as Map<String, dynamic>;
+    return MonthlyReport(
+      label: period['label'] as String,
+      earned: totals['earned'] as String,
+      paid: totals['paid'] as String,
+      outstanding: totals['outstanding'] as String,
+      jobsCompleted: totals['jobsCompleted'] as int,
+      paymentProgress: totals['paymentProgress'] as int,
+      jobs: (json['jobs'] as List<dynamic>)
+          .map((e) => Earning.fromJson(e as Map<String, dynamic>))
+          .toList(),
     );
   }
 }

@@ -9,6 +9,7 @@ import '../api/models.dart';
 import '../format.dart';
 import '../state/session.dart';
 import '../theme.dart';
+import '../widgets/design_files.dart';
 
 /// One stage, and everything the signed-in person may do to it.
 ///
@@ -101,6 +102,9 @@ class _StageDetailScreenState extends State<StageDetailScreen> {
                     padding: const EdgeInsets.only(bottom: 24),
                     children: [
                       _Header(detail: detail!),
+                      // The brief comes before the evidence: a worker opening a
+                      // job wants the drawing, not the inspection photographs.
+                      DesignFiles(jobCardId: detail.stage.jobCard.id),
                       _Photos(detail: detail),
                       _PriceHistory(detail: detail),
                     ],
@@ -288,6 +292,7 @@ class _PriceHistory extends StatelessWidget {
     'REVISED': 'Price revised',
     'ACCEPTED': 'You accepted',
     'DECLINED': 'You declined',
+    'SCOPE_CONFIRMED': 'Supervisor confirmed the scope change',
   };
 
   @override
@@ -370,6 +375,36 @@ class _Actions extends StatelessWidget {
 
     if (user.isWorker && stage.assignee?.id == user.id) {
       switch (stage.status) {
+        // A job the worker has not yet agreed to take. Accepting and declining
+        // come before any work action, because until one of them happens this is
+        // an offer rather than a job.
+        case 'ASSIGNED' when !stage.assignmentAccepted:
+          buttons.add(FilledButton.icon(
+            onPressed: busy
+                ? null
+                : () => onAct(
+                      () => api.acceptAssignment(stage.id, stage.version),
+                      'Job accepted',
+                    ),
+            icon: const Icon(Icons.thumb_up_alt_outlined),
+            label: const Text('Accept this job'),
+          ));
+          buttons.add(OutlinedButton(
+            onPressed: busy
+                ? null
+                : () async {
+                    final reason =
+                        await _askReason(context, 'Why are you turning this down?');
+                    if (reason != null && reason.trim().length >= 5) {
+                      await onAct(
+                        () => api.declineAssignment(stage.id, stage.version, reason),
+                        'Sent back to the office',
+                      );
+                    }
+                  },
+            child: const Text('I can’t take this'),
+          ));
+
         case 'ASSIGNED':
           buttons.add(FilledButton.icon(
             onPressed: busy ? null : () => onAct(() => api.startWork(stage.id, stage.version), 'Work started'),
@@ -445,6 +480,32 @@ class _Actions extends StatelessWidget {
       ));
     }
 
+    // A supervisor can vouch for a scope change once a worker has turned a price
+    // down. It records what changed on site; it does not set a figure and does
+    // not move the job on — the office still prices it and the worker still has
+    // to accept.
+    if (user.isSupervisor && stage.status == 'PRICE_DECLINED') {
+      buttons.add(FilledButton.icon(
+        onPressed: busy
+            ? null
+            : () async {
+                final reason = await _askReason(
+                  context,
+                  'What changed on site?',
+                  hint: 'e.g. curved rails do require steam-bending',
+                );
+                if (reason != null && reason.trim().length >= 5) {
+                  await onAct(
+                    () => api.confirmScopeChange(stage.id, stage.version, reason),
+                    'Scope change recorded',
+                  );
+                }
+              },
+        icon: const Icon(Icons.rule),
+        label: const Text('Confirm scope change'),
+      ));
+    }
+
     if (buttons.isEmpty) return const SizedBox.shrink();
 
     return SafeArea(
@@ -478,7 +539,12 @@ class _Actions extends StatelessWidget {
         ),
       );
 
-  Future<String?> _askReason(BuildContext context, String title, {bool optional = false}) {
+  Future<String?> _askReason(
+    BuildContext context,
+    String title, {
+    bool optional = false,
+    String? hint,
+  }) {
     final controller = TextEditingController();
     return showDialog<String>(
       context: context,
@@ -489,7 +555,7 @@ class _Actions extends StatelessWidget {
           autofocus: true,
           maxLines: 3,
           decoration: InputDecoration(
-            hintText: optional ? 'Optional' : 'At least 5 characters',
+            hintText: hint ?? (optional ? 'Optional' : 'At least 5 characters'),
           ),
         ),
         actions: [

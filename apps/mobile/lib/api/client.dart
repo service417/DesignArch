@@ -208,6 +208,26 @@ class ApiClient {
   /// else while this screen was open is rejected rather than silently
   /// overwritten. On a shared job that is the difference between a conflict the
   /// worker is told about and one nobody notices.
+  /// Take the job on. Nothing can start until this happens.
+  Future<void> acceptAssignment(String id, int version) =>
+      post('/stages/$id/assignment/accept', {'expectedVersion': version});
+
+  /// Hand the job back. Other workers' assignments on the same card are
+  /// untouched; this one returns to the office for reassignment.
+  Future<void> declineAssignment(String id, int version, String reason) =>
+      post('/stages/$id/assignment/decline', {
+        'expectedVersion': version,
+        'reason': reason.trim(),
+      });
+
+  /// A supervisor's on-site confirmation that the work genuinely changed scope.
+  /// Carries no amount: the office still sets the number.
+  Future<void> confirmScopeChange(String id, int version, String reason) =>
+      post('/stages/$id/scope-change', {
+        'expectedVersion': version,
+        'reason': reason.trim(),
+      });
+
   Future<void> startWork(String id, int version) =>
       post('/stages/$id/start', {'expectedVersion': version});
 
@@ -246,6 +266,25 @@ class ApiClient {
     final response = await _send(attempt);
     if (response.statusCode < 200 || response.statusCode >= 300) _throwFor(response);
   }
+
+  /// The design files for a job card — the brief the work is done from.
+  Future<List<DesignFile>> designFiles(String jobCardId) async {
+    final data = await get('/job-cards/$jobCardId/attachments') as List<dynamic>;
+    return data.map((f) => DesignFile.fromJson(f as Map<String, dynamic>)).toList();
+  }
+
+  // ------------------------------------------------------------ dashboards
+
+  Future<WorkerHome> workerHome() async =>
+      WorkerHome.fromJson(await get('/dashboard/worker') as Map<String, dynamic>);
+
+  Future<SupervisorSummary> supervisorHome() async =>
+      SupervisorSummary.fromJson(await get('/dashboard/supervisor') as Map<String, dynamic>);
+
+  Future<MonthlyReport> monthlyReport({String? month}) async => MonthlyReport.fromJson(
+        await get('/dashboard/worker/monthly${month == null ? '' : '?month=$month'}')
+            as Map<String, dynamic>,
+      );
 
   // -------------------------------------------------------------- earnings
 

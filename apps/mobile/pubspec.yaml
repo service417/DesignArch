@@ -18,6 +18,7 @@ dependencies:
   flutter_secure_storage: ^9.2.2  # tokens belong in the Keystore, not SharedPreferences
   image_picker: ^1.1.2            # camera + gallery for inspection evidence
   intl: ^0.19.0                   # dates in Asia/Colombo, per the architecture decision
+  url_launcher: ^6.3.2
 
 dev_dependencies:
   flutter_test:

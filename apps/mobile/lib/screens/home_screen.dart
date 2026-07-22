@@ -6,6 +6,7 @@ import '../api/models.dart';
 import '../format.dart';
 import '../state/session.dart';
 import '../widgets/stage_card.dart';
+import 'monthly_report_screen.dart';
 import 'notifications_screen.dart';
 import 'stage_detail_screen.dart';
 
@@ -135,6 +136,9 @@ class _MyWorkState extends State<_MyWork> {
   Widget build(BuildContext context) {
     return Column(
       children: [
+        // The two numbers a worker actually opens the app for: how much is on my
+        // plate, and what have I earned this month.
+        const _WorkerSummary(),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Row(
@@ -169,6 +173,88 @@ class _MyWorkState extends State<_MyWork> {
   }
 }
 
+/// Active-job count and this month's earnings, above the worker's job list.
+class _WorkerSummary extends StatefulWidget {
+  const _WorkerSummary();
+
+  @override
+  State<_WorkerSummary> createState() => _WorkerSummaryState();
+}
+
+class _WorkerSummaryState extends State<_WorkerSummary> {
+  late Future<WorkerHome> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = context.read<Session>().api.workerHome();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<WorkerHome>(
+      future: _future,
+      builder: (context, snapshot) {
+        final home = snapshot.data;
+        // No skeleton: a bar that appears half a second late is less jarring
+        // than one that flashes placeholder numbers where money should be.
+        if (home == null) return const SizedBox.shrink();
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                _Metric(label: 'Active jobs', value: '${home.activeJobs}'),
+                const SizedBox(width: 24),
+                Expanded(
+                  child: _Metric(
+                    label: 'Earned this month',
+                    value: formatMinor(home.earnedThisMonth),
+                  ),
+                ),
+                IconButton.filledTonal(
+                  icon: const Icon(Icons.receipt_long),
+                  tooltip: 'Monthly statement',
+                  onPressed: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const MonthlyReportScreen()),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _Metric extends StatelessWidget {
+  const _Metric({required this.label, required this.value});
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+      ],
+    );
+  }
+}
+
 /// The supervisor's shared inspection queue.
 class _InspectionQueue extends StatefulWidget {
   const _InspectionQueue();
@@ -195,15 +281,64 @@ class _InspectionQueueState extends State<_InspectionQueue> {
 
   @override
   Widget build(BuildContext context) {
-    return _StageList(
+    return Column(
+      children: [
+        const _SupervisorSummary(),
+        Expanded(
+          child: _StageList(
+            future: _future,
+            onRefresh: _refresh,
+            showWorker: true,
+            empty: const EmptyState(
+              icon: Icons.done_all,
+              title: 'Nothing to inspect',
+              body: 'Work marked ready by a carpenter or painter appears here.',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// "Ready to inspect" and "Passed today" — the supervisor's two numbers.
+class _SupervisorSummary extends StatefulWidget {
+  const _SupervisorSummary();
+
+  @override
+  State<_SupervisorSummary> createState() => _SupervisorSummaryState();
+}
+
+class _SupervisorSummaryState extends State<_SupervisorSummary> {
+  late Future<SupervisorSummary> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = context.read<Session>().api.supervisorHome();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<SupervisorSummary>(
       future: _future,
-      onRefresh: _refresh,
-      showWorker: true,
-      empty: const EmptyState(
-        icon: Icons.done_all,
-        title: 'Nothing to inspect',
-        body: 'Work marked ready by a carpenter or painter appears here.',
-      ),
+      builder: (context, snapshot) {
+        final summary = snapshot.data;
+        if (summary == null) return const SizedBox.shrink();
+
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                _Metric(label: 'Ready to inspect', value: '${summary.readyToInspect}'),
+                const SizedBox(width: 32),
+                _Metric(label: 'Passed today', value: '${summary.passedToday}'),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

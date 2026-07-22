@@ -65,6 +65,10 @@ export interface JobCard {
   id: string;
   title: string;
   description: string | null;
+  /**
+   * One entry per *assignment*, not per stage type. Several workers can hold the
+   * same stage type on a card at once, each progressing independently.
+   */
   stages: Array<{
     id: string;
     type: StageType;
@@ -72,6 +76,7 @@ export interface JobCard {
     assigneeId: string | null;
     version: number;
     assignee: PersonRef | null;
+    acceptedPrice?: string | null;
   }>;
 }
 
@@ -123,12 +128,72 @@ export interface StageDetail {
   }>;
   pricingHistory: Array<{
     id: string;
-    action: 'PROPOSED' | 'REVISED' | 'ACCEPTED' | 'DECLINED';
+    action: PricingAction;
     value: string | null;
     reason: string | null;
     createdAt: string;
     actor: PersonRef | null;
   }>;
+}
+
+export type PricingAction =
+  | 'PROPOSED'
+  | 'REVISED'
+  | 'ACCEPTED'
+  | 'DECLINED'
+  /** A supervisor's on-site confirmation that the work genuinely changed. */
+  | 'SCOPE_CONFIRMED';
+
+export interface AdminDashboard {
+  kpis: {
+    activeProjects: number;
+    inProgressJobCards: number;
+    awaitingMyApproval: number;
+    /** Minor units as a string — never parsed into a number. */
+    unpaidTotal: string;
+  };
+  pendingQueue: Array<{
+    id: string;
+    type: StageType;
+    status: StageStatus;
+    updatedAt: string;
+    assignee: { id: string; name: string } | null;
+    jobCard: { id: string; title: string; project: { id: string; name: string } };
+    lastPricingEvent: {
+      action: PricingAction;
+      value: string | null;
+      reason: string | null;
+      createdAt: string;
+    } | null;
+  }>;
+  projects: Array<{
+    id: string;
+    name: string;
+    client: string;
+    deadline: string | null;
+    overdue: boolean;
+    totalStages: number;
+    completedStages: number;
+    percentComplete: number;
+  }>;
+  workers: Array<{
+    id: string;
+    name: string;
+    role: Role;
+    openAssignments: number;
+    state: 'BUSY' | 'FREE' | 'OVERDUE';
+  }>;
+}
+
+export interface Attachment {
+  id: string;
+  filename: string;
+  extension: string;
+  isPdf: boolean;
+  url: string;
+  kind: string;
+  createdAt: string;
+  uploadedBy: { id: string; name: string };
 }
 
 export interface Earning {

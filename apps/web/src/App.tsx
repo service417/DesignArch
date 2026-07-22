@@ -10,6 +10,7 @@ import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { EarningsPage } from './pages/EarningsPage';
 import { UsersPage } from './pages/UsersPage';
 import { NotificationsPage } from './pages/NotificationsPage';
+import { JobCardPage } from './pages/JobCardPage';
 import { Spinner } from './components/ui';
 
 function Routed() {
@@ -28,6 +29,7 @@ function Routed() {
         <Route path="/stages/:id" element={<StageDetailPage />} />
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/projects/:id" element={<ProjectDetailPage />} />
+        <Route path="/job-cards/:id" element={<JobCardPage />} />
         <Route path="/earnings" element={<EarningsPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/notifications" element={<NotificationsPage />} />

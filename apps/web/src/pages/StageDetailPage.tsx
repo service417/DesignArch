@@ -12,6 +12,7 @@ const LEDGER_LABEL = {
   REVISED: 'Price revised',
   ACCEPTED: 'Accepted by worker',
   DECLINED: 'Declined by worker',
+  SCOPE_CONFIRMED: 'Scope change confirmed on site',
 } as const;
 
 export function StageDetailPage() {
@@ -114,7 +115,9 @@ export function StageDetailPage() {
                               ? 'accepted'
                               : entry.action === 'DECLINED'
                                 ? 'declined'
-                                : ''
+                                : entry.action === 'SCOPE_CONFIRMED'
+                                  ? 'confirmed'
+                                  : ''
                           }`}
                         />
                         <div className="body">

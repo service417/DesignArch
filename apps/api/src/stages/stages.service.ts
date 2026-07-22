@@ -62,6 +62,11 @@ const STAGE_LIST_VIEW = {
   updatedAt: true,
   acceptedPrice: true,
   rejectionReason: true,
+  // Whether the worker has taken the job on. Omitting these made every client
+  // read "not accepted", so the app offered to accept work already under way.
+  assignmentAcceptedAt: true,
+  assignmentDeclinedAt: true,
+  assignmentDeclineReason: true,
   assignee: { select: { id: true, name: true, role: true } },
   jobCard: {
     select: {
@@ -368,6 +373,9 @@ export class StagesService {
         sequenceNo: true,
         acceptedPrice: true,
         rejectionReason: true,
+        assignmentAcceptedAt: true,
+        assignmentDeclinedAt: true,
+        assignmentDeclineReason: true,
         approvedAt: true,
         completedAt: true,
         createdAt: true,
