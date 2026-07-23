@@ -1,11 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ClipboardList, Search, Star, UserPlus } from 'lucide-react';
+import { ClipboardList, Plus, Search, Star, UserPlus } from 'lucide-react';
 import { useJobCards } from '../store/jobCards';
 import { lkr } from '../mock/projects';
+import { nextJcRef } from '../mock/jobCards';
 import type { JobCard, JobStatus, Stage, StageInfo } from '../mock/jobCards';
 import { Panel, Avatar } from '../components/ui';
 import { ProjectSelector } from '../components/ProjectSelector';
+import { NewJobCardModal } from '../components/NewJobCardModal';
 import { StatusPill, StageChip, statusLabel, ALL_STATUSES } from '../components/jobStatus';
 
 type Segment = 'ALL' | 'ASSIGNED' | 'UNASSIGNED' | 'STARRED';
@@ -25,7 +27,7 @@ const cardAmountKind = (card: JobCard) =>
 
 /** Job cards for one project, with the project selector as the focal control. */
 export function JobCardsListPage() {
-  const { jobCards, selectedProjectId, toggleStar } = useJobCards();
+  const { jobCards, selectedProjectId, setSelectedProjectId, toggleStar, addJobCard } = useJobCards();
   const navigate = useNavigate();
 
   const [query, setQuery] = useState('');
@@ -33,6 +35,7 @@ export function JobCardsListPage() {
   const [stage, setStage] = useState<StageFilter>('ALL');
   const [status, setStatus] = useState<StatusFilter>('ALL');
   const [sort, setSort] = useState<SortKey>('ref');
+  const [creating, setCreating] = useState(false);
 
   const scoped = useMemo(
     () => jobCards.filter((c) => c.projectId === selectedProjectId),
@@ -81,11 +84,27 @@ export function JobCardsListPage() {
     setStatus('ALL');
   };
 
+  function createCard(card: Omit<JobCard, 'id'>) {
+    addJobCard(card);
+    // Show the project the new card belongs to, so it's visible immediately.
+    setSelectedProjectId(card.projectId);
+    setCreating(false);
+  }
+
   return (
     <div className="space-y-6 p-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-ink">Job Cards</h1>
-        <p className="mt-0.5 text-sm text-muted">Track every stage across a project.</p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-ink">Job Cards</h1>
+          <p className="mt-0.5 text-sm text-muted">Track every stage across a project.</p>
+        </div>
+        <button
+          onClick={() => setCreating(true)}
+          className="inline-flex items-center gap-2 rounded-xl bg-forest px-4 py-2.5 text-sm font-semibold text-white shadow-soft transition hover:brightness-110"
+        >
+          <Plus size={18} strokeWidth={2.4} />
+          Add job card
+        </button>
       </div>
 
       <ProjectSelector />
@@ -172,6 +191,15 @@ export function JobCardsListPage() {
             />
           ))}
         </div>
+      )}
+
+      {creating && (
+        <NewJobCardModal
+          nextRef={nextJcRef(jobCards)}
+          defaultProjectId={selectedProjectId}
+          onSave={createCard}
+          onClose={() => setCreating(false)}
+        />
       )}
     </div>
   );

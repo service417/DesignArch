@@ -85,6 +85,15 @@ export const jcProjects: JcProject[] = [
 
 export const defaultProjectId = 'oak';
 
+/** Next "JC-####" ref, one above the highest number currently in use. */
+export function nextJcRef(cards: JobCard[]): string {
+  const highest = cards.reduce((max, c) => {
+    const n = Number(c.ref.replace(/\D/g, ''));
+    return Number.isFinite(n) && n > max ? n : max;
+  }, 1000);
+  return `JC-${highest + 1}`;
+}
+
 // --------------------------------------------------------------- assignees
 
 const P = {

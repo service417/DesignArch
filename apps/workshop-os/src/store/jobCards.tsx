@@ -14,9 +14,12 @@ interface JobCardsStore {
   setSelectedProjectId: (id: string) => void;
   getCard: (id: string) => JobCard | undefined;
   toggleStar: (id: string) => void;
+  addJobCard: (card: Omit<JobCard, 'id'>) => void;
 }
 
 const Ctx = createContext<JobCardsStore | null>(null);
+
+let seq = 0;
 
 export function JobCardsProvider({ children }: { children: ReactNode }) {
   const [jobCards, setJobCards] = useState<JobCard[]>(seedJobCards);
@@ -30,6 +33,8 @@ export function JobCardsProvider({ children }: { children: ReactNode }) {
       getCard: (id) => jobCards.find((c) => c.id === id || c.ref === id),
       toggleStar: (id) =>
         setJobCards((prev) => prev.map((c) => (c.id === id ? { ...c, starred: !c.starred } : c))),
+      addJobCard: (card) =>
+        setJobCards((prev) => [{ ...card, id: `jc-new-${++seq}` }, ...prev]),
     }),
     [jobCards, selectedProjectId],
   );
