@@ -183,16 +183,51 @@ export class JobCardsService {
     return jobCard;
   }
 
-  async update(id: string, dto: UpdateJobCardDto) {
-    await this.requireJobCard(id);
-    return this.prisma.jobCard.update({
+  /**
+   * Edit the job card's title and specification.
+   *
+   * Audited, because the description is the brief the work is done against —
+   * changing it after a worker has started is a meaningful act, and the trail is
+   * what lets a later dispute establish what the spec said when. The old and new
+   * text are recorded so the change itself is reconstructable, not just the fact
+   * that one happened.
+   */
+  async update(id: string, dto: UpdateJobCardDto, adminId: string, ip?: string) {
+    const before = await this.prisma.jobCard.findUnique({
       where: { id },
-      data: {
-        ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
-        ...(dto.description !== undefined
-          ? { description: dto.description?.trim() || null }
-          : {}),
-      },
+      select: { id: true, title: true, description: true },
+    });
+    if (!before) throw new NotFoundException(`Job card ${id} was not found.`);
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.jobCard.update({
+        where: { id },
+        data: {
+          ...(dto.title !== undefined ? { title: dto.title.trim() } : {}),
+          ...(dto.description !== undefined
+            ? { description: dto.description?.trim() || null }
+            : {}),
+        },
+      });
+
+      await this.audit.recordIn(tx, {
+        actorId: adminId,
+        action: 'JOB_CARD_UPDATED',
+        entity: 'job_card',
+        entityId: id,
+        meta: {
+          ...(dto.title !== undefined && dto.title.trim() !== before.title
+            ? { titleFrom: before.title, titleTo: updated.title }
+            : {}),
+          ...(dto.description !== undefined &&
+          (updated.description ?? null) !== (before.description ?? null)
+            ? { descriptionChanged: true }
+            : {}),
+        },
+        ip,
+      });
+
+      return updated;
     });
   }
 

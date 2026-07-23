@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import type { FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { api, tokens } from '../lib/api';
 import { useResource } from '../lib/useQueue';
@@ -24,6 +25,7 @@ export function JobCardPage() {
   const files = useResource<Attachment[]>(`/job-cards/${id}/attachments`);
   const navigate = useNavigate();
   const [adding, setAdding] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const carpentry = card.data?.stages.filter((s) => s.type === 'CARPENTRY') ?? [];
   const painting = card.data?.stages.filter((s) => s.type === 'PAINTING') ?? [];
@@ -46,12 +48,26 @@ export function JobCardPage() {
                 {card.data.project.name} · {card.data.project.client}
               </p>
             </div>
+            <button className="small" onClick={() => setEditing((open) => !open)}>
+              {editing ? 'Cancel' : 'Edit details'}
+            </button>
           </div>
 
-          {card.data.description && (
-            <Card title="Specification">
-              <div className="card-body">{card.data.description}</div>
-            </Card>
+          {editing ? (
+            <EditJobCard
+              jobCard={card.data}
+              onSaved={() => {
+                setEditing(false);
+                void card.reload();
+              }}
+              onCancel={() => setEditing(false)}
+            />
+          ) : (
+            card.data.description && (
+              <Card title="Specification">
+                <div className="card-body">{card.data.description}</div>
+              </Card>
+            )
           )}
 
           <Card
@@ -119,6 +135,89 @@ export function JobCardPage() {
         </>
       )}
     </>
+  );
+}
+
+/**
+ * Edit a job card's title and specification.
+ *
+ * Only the title and the brief text are editable — a card's project, its stages
+ * and their assignments each have their own controlled paths (reassignment, add
+ * assignment) rather than being free-text fields, because they carry money-path
+ * consequences that a bare edit box should not quietly change.
+ */
+function EditJobCard({
+  jobCard,
+  onSaved,
+  onCancel,
+}: {
+  jobCard: JobCardDetail;
+  onSaved: () => void;
+  onCancel: () => void;
+}) {
+  const [title, setTitle] = useState(jobCard.title);
+  const [description, setDescription] = useState(jobCard.description ?? '');
+  const [error, setError] = useState<unknown>(null);
+  const [busy, setBusy] = useState(false);
+
+  const changed =
+    title.trim() !== jobCard.title || description.trim() !== (jobCard.description ?? '');
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setBusy(true);
+    try {
+      await api.patch(`/job-cards/${jobCard.id}`, {
+        title: title.trim(),
+        // Empty clears the description; the API maps '' to null.
+        description: description.trim(),
+      });
+      onSaved();
+    } catch (caught) {
+      setError(caught);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Card title="Edit job card">
+      <div className="card-body">
+        <ErrorNote error={error} />
+        <form onSubmit={save}>
+          <div className="field">
+            <label htmlFor="jc-title">Title</label>
+            <input
+              id="jc-title"
+              required
+              maxLength={150}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="jc-spec">Specification</label>
+            <textarea
+              id="jc-spec"
+              rows={5}
+              maxLength={5000}
+              placeholder="What is being built, materials, tolerances, finish…"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
+          <div className="actions">
+            <button className="primary" type="submit" disabled={busy || !changed || !title.trim()}>
+              {busy ? 'Saving…' : 'Save changes'}
+            </button>
+            <button type="button" onClick={onCancel}>
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </Card>
   );
 }
 

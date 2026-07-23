@@ -45,8 +45,13 @@ export class JobCardsController {
 
   @Patch(':id')
   @Roles('ADMIN')
-  update(@Param('id') id: string, @Body() dto: UpdateJobCardDto) {
-    return this.jobCards.update(id, dto);
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateJobCardDto,
+    @Req() req: AuthenticatedRequest,
+    @Ip() ip: string,
+  ) {
+    return this.jobCards.update(id, dto, req.user!.id, ip);
   }
 
   @Post(':id/stages')
