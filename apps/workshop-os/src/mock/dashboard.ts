@@ -32,8 +32,8 @@ export const navItems: NavItem[] = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
   { label: 'Projects', icon: FolderClosed, path: '/projects' },
   { label: 'Job Cards', icon: FileText, path: '/job-cards' },
-  { label: 'Approvals', icon: CheckCircle2, path: '/approvals', badge: 4 },
   { label: 'Workers', icon: Users, path: '/workers' },
+  { label: 'Approvals', icon: CheckCircle2, path: '/approvals', badge: 4 },
   { label: 'Payments', icon: CreditCard, path: '/payments', badge: 6 },
   { label: 'Reports', icon: BarChart3, path: '/reports' },
 ];
