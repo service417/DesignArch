@@ -118,6 +118,24 @@ a { color: inherit; }
    that job, and the extra margin would break the row alignment. */
 .grid > .card { margin: 0; }
 
+/* A title that is also a link, without looking like body-copy link text. */
+.plain-link { color: inherit; text-decoration: none; }
+.plain-link:hover { color: var(--accent); }
+
+/* An <a> styled as a small button, so navigation and actions sit together. */
+.button-link {
+  display: inline-block;
+  padding: 5px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+}
+.button-link:hover { background: var(--bg); }
+
 .value.urgent { color: var(--accent); }
 .overdue { color: var(--danger); }
 .scope-confirmed { color: var(--ok); font-weight: 600; font-size: 13px; }

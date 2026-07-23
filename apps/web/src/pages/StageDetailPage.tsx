@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api } from '../lib/api';
+import { useAuth } from '../auth/AuthContext';
 import { useResource } from '../lib/useQueue';
 import { formatMinor, parseToMinor } from '../lib/money';
 import type { StageDetail } from '../lib/types';
@@ -17,6 +18,7 @@ const LEDGER_LABEL = {
 
 export function StageDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
   const { data: stage, error, loading, reload } = useResource<StageDetail>(`/stages/${id}`);
 
   return (
@@ -32,13 +34,28 @@ export function StageDetailPage() {
         <>
           <div className="page-head">
             <div>
-              <h1>{stage.jobCard.title}</h1>
+              {/* The title links to the job card. A stage is one assignment on a
+                  card; the card is where the brief, the files and — for an admin —
+                  the edit controls live, and there was no way to reach it from
+                  here before. */}
+              <h1>
+                <Link to={`/job-cards/${stage.jobCard.id}`} className="plain-link">
+                  {stage.jobCard.title}
+                </Link>
+              </h1>
               <p>
                 {stage.jobCard.project.name} · {stage.jobCard.project.client} ·{' '}
                 {stage.type === 'CARPENTRY' ? 'Carpentry' : 'Painting'}
               </p>
             </div>
-            <StatusBadge status={stage.status} />
+            <div className="actions">
+              {user?.role === 'ADMIN' && (
+                <Link className="small button-link" to={`/job-cards/${stage.jobCard.id}`}>
+                  Open job card
+                </Link>
+              )}
+              <StatusBadge status={stage.status} />
+            </div>
           </div>
 
           <div className="grid grid-2">
