@@ -33,12 +33,14 @@ class _DesignFilesState extends State<DesignFiles> {
     return FutureBuilder<List<DesignFile>>(
       future: _future,
       builder: (context, snapshot) {
-        final files = snapshot.data ?? const <DesignFile>[];
-        // Nothing to show and nothing to say: an empty card would be noise on a
-        // small screen.
-        if (snapshot.connectionState != ConnectionState.done || files.isEmpty) {
+        // While the first load is in flight, show nothing rather than flashing an
+        // empty state that a moment later fills with files.
+        if (snapshot.connectionState != ConnectionState.done) {
           return const SizedBox.shrink();
         }
+
+        final files = snapshot.data ?? const <DesignFile>[];
+        final scheme = Theme.of(context).colorScheme;
 
         return Card(
           child: Padding(
@@ -46,20 +48,35 @@ class _DesignFilesState extends State<DesignFiles> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Design files (${files.length})',
-                  style: const TextStyle(fontWeight: FontWeight.w700),
+                Row(
+                  children: [
+                    Icon(Icons.folder_open, size: 18, color: scheme.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Design files (${files.length})',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 12),
-                SizedBox(
-                  height: 140,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: files.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 10),
-                    itemBuilder: (context, index) => _FileTile(file: files[index]),
+                // Always shown, even when empty: a worker needs to be able to tell
+                // "there are no drawings for this job" apart from "the section did
+                // not load". A bare screen answers neither.
+                if (files.isEmpty)
+                  Text(
+                    'No drawings or photos have been attached to this job yet.',
+                    style: TextStyle(color: scheme.onSurfaceVariant, fontSize: 13),
+                  )
+                else
+                  SizedBox(
+                    height: 140,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: files.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 10),
+                      itemBuilder: (context, index) => _FileTile(file: files[index]),
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -93,9 +110,31 @@ class _FileTile extends StatelessWidget {
               } else if (context.mounted) {
                 await showDialog<void>(
                   context: context,
-                  builder: (_) => Dialog(
-                    insetPadding: const EdgeInsets.all(12),
-                    child: InteractiveViewer(child: Image.network(url.toString())),
+                  // A dark, edge-to-edge backdrop so the drawing is the whole
+                  // screen — tap anywhere to dismiss, pinch to zoom into detail.
+                  barrierColor: Colors.black87,
+                  builder: (dialogContext) => GestureDetector(
+                    onTap: () => Navigator.pop(dialogContext),
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: InteractiveViewer(
+                            maxScale: 5,
+                            child: Image.network(url.toString(), fit: BoxFit.contain),
+                          ),
+                        ),
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 32,
+                          child: Text(
+                            file.filename,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white70, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 );
               }
